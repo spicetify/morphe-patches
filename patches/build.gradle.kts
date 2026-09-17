@@ -19,9 +19,22 @@ val patchListGeneratorClasspath = configurations.create("patchListGeneratorClass
 dependencies {
     testImplementation("org.junit.jupiter:junit-jupiter:5.11.4")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
-    testRuntimeOnly(libs.morphe.patcher)
+    testImplementation(libs.morphe.patcher)
     compileOnly(libs.gson)
     patchListGeneratorClasspath(libs.gson)
+}
+
+sourceSets.test {
+    java.srcDir(rootProject.file("scripts"))
+}
+
+tasks.named<JavaCompile>("compileTestJava") {
+    sourceCompatibility = "21"
+    targetCompatibility = "21"
+}
+
+tasks.named<org.jetbrains.kotlin.gradle.tasks.KotlinJvmCompile>("compileTestKotlin") {
+    compilerOptions.jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_21)
 }
 
 tasks {
@@ -42,4 +55,11 @@ tasks {
 
 tasks.test {
     useJUnitPlatform()
+    dependsOn("testArtifactVerifier")
+}
+
+tasks.register<JavaExec>("testArtifactVerifier") {
+    dependsOn(tasks.testClasses)
+    classpath = sourceSets.test.get().runtimeClasspath
+    mainClass.set("VerifySharingDexTest")
 }
