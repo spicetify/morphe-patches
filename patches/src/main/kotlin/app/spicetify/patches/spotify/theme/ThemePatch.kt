@@ -19,7 +19,6 @@ val themePatch = resourcePatch(
         title = "Primary background color",
         description = "Background color in #RRGGBB or #AARRGGBB format.",
         required = true,
-        validator = { isThemeColor(it) },
     )
     val accentColor by stringOption(
         key = "accentColor",
@@ -27,7 +26,6 @@ val themePatch = resourcePatch(
         title = "Accent color",
         description = "Accent color in #RRGGBB or #AARRGGBB format.",
         required = true,
-        validator = { isThemeColor(it) },
     )
     val pressedAccentColor by stringOption(
         key = "pressedAccentColor",
@@ -35,10 +33,11 @@ val themePatch = resourcePatch(
         title = "Pressed accent color",
         description = "Pressed accent color in #RRGGBB or #AARRGGBB format.",
         required = true,
-        validator = { isThemeColor(it) },
     )
 
     execute {
+        // setOptions catches option validator errors and silently retains defaults.
+        // Validate the submitted values here so invalid colors fail the patch.
         val colors = ThemeColors(
             background = requireNotNull(backgroundColor) { "Primary background color is required." },
             accent = requireNotNull(accentColor) { "Accent color is required." },
