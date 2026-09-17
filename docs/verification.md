@@ -42,8 +42,8 @@ relocates XML selectors, the checker compares decoded XML contents.
 The sharing helper and its call appear exactly once when enabled and are
 absent from the theme-only output. Android signature verification passes.
 These runs use FULL bytecode mode. The input base APK hash is listed above.
-The combined output hash is
-`d943ae352dacea106e7c97020bb22131d757014f6c8feb8ec89d2883f174025d`.
+The combined output rebuilt after the option-validation fix has SHA-256
+`f82cfe6de544ffddd6c90f3addfe7360e22a2056a93e0a4e7c5fea73520bcbc7`.
 
 Selecting the sharing patch for the unrelated Manager package applies zero
 patches. Desktop still signs an unchanged output and returns success in that
@@ -65,8 +65,42 @@ Initial Android 16 emulator startup was overloaded and showed a Spotify ANR.
 Stock Spotify subsequently reached its welcome screen in the same emulator.
 The combined patched APK installs and reaches the same welcome-screen
 accessibility controls on a controlled retry. Hardware-rendered screenshots
-show a black app area, so visual color verification is still open. This does
-not establish logged-in behavior or Manager compatibility.
+showed a black app area. Restarting the emulator with SwiftShader and Vulkan
+disabled restored visible Manager rendering. Spotify's visual color checks
+and logged-in behavior remain unverified.
+
+Morphe Manager 1.31.1 imports the Android bundle and lists both patches.
+Enabling **Experimental app versions** makes Spotify visible. The default
+flow accepts the stock split archive and starts the sharing patch. Cancelling
+that job and confirming **Stop patcher** returns to the app list. Completing
+patching and installation through Manager remains unverified.
+
+An earlier local import contained JVM classes without `classes.dex`, and
+Manager reported zero patches. Replacing that stale file with the
+`buildAndroid` output resolved it. A `.mpp` filename alone does not establish
+Android compatibility.
+
+## Published prerelease
+
+[CI run 35241568299](https://github.com/spicetify/morphe-patches/actions/runs/35241568299)
+passed tests, extension lint, bundle compilation, release, and attestation.
+It published [v1.0.0-dev.1](https://github.com/spicetify/morphe-patches/releases/tag/v1.0.0-dev.1)
+as a prerelease from source commit `22b1524`. Stable publishing remains gated.
+
+The downloaded `patches-1.0.0-dev.1.mpp` contains `classes.dex` and
+`extensions/spotify.mpe`. Its SHA-256 is
+`fec60b3452aa9af9f195d2ccc544015cc2f04444c7ef1352052507b2590d76fa`.
+`gh attestation verify` succeeds for this file and repository. Manager downloads
+this release from the following feed and lists both patches:
+
+```text
+https://raw.githubusercontent.com/spicetify/morphe-patches/refs/heads/dev/patches-bundle.json
+```
+
+The explicit `refs/heads/dev` URL keeps this feed on experimental releases.
+Enable **Experimental app versions** in the source's controls to show Spotify.
+The remote source was tested with the duplicate local source disabled. A later
+version update and completed Manager patch/install still need verification.
 
 ## Runtime and release checklist
 
