@@ -88,6 +88,12 @@ passed tests, extension lint, bundle compilation, release, and attestation.
 It published [v1.0.0-dev.1](https://github.com/spicetify/morphe-patches/releases/tag/v1.0.0-dev.1)
 as a prerelease from source commit `22b1524`. Stable publishing remains gated.
 
+[CI run 35247182789](https://github.com/spicetify/morphe-patches/actions/runs/35247182789)
+also passes on `07fd462`. Both runs were explicitly dispatched. Subsequent
+SSH pushes did not create Actions runs during this test, despite enabled
+workflows and matching branch triggers. Automatic push-triggered release
+admission remains unverified.
+
 The downloaded `patches-1.0.0-dev.1.mpp` contains `classes.dex` and
 `extensions/spotify.mpe`. Its SHA-256 is
 `fec60b3452aa9af9f195d2ccc544015cc2f04444c7ef1352052507b2590d76fa`.
@@ -130,6 +136,7 @@ Use the normal Manager entry point before claiming release readiness.
 - [ ] Test sharing for tracks, albums, playlists, episodes, and timestamps.
 - [ ] Check Home, library, player, settings, and dialog colors.
 - [ ] Test source updates, same-key reinstall, cancellation, and stock recovery.
+- [ ] Verify a push starts CI and prerelease automation for the expected commit.
 
 No patched application has been installed on the source phone. No stable
 compatibility claim is made from a successful build or static match.
