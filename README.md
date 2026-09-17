@@ -40,6 +40,29 @@ change only selected Android resources, not every Spotify screen.
 
 <!-- PATCHES_END -->
 
+## Try the experimental source
+
+The [first prerelease](https://github.com/spicetify/morphe-patches/releases/tag/v1.0.0-dev.1)
+is available for testing. Source download and patch discovery work in Morphe
+Manager 1.31.1. Completed Manager installation, playback, and real sharing
+still need verification; there is no verified stable release.
+
+To install the experimental source in Manager:
+
+1. Open **Sources**, select **Add**, and choose **Remote**.
+2. Paste the following source URL, then select **Add**.
+
+   ```text
+   https://raw.githubusercontent.com/spicetify/morphe-patches/refs/heads/dev/patches-bundle.json
+   ```
+
+3. Expand **Spicetify Android patches** and enable **Experimental app versions**.
+4. Return to the app list. Spotify appears with the target version
+   `9.1.80.2221`, ARM64 build `145767611`.
+
+This feed stays on experimental releases. Keep your own stock APK or split-APK
+archive for patching; the repository does not distribute Spotify.
+
 ## Try a local build
 
 Build the bundle using the [development instructions](CONTRIBUTING.md), then
@@ -52,9 +75,6 @@ uses a different signing certificate from stock Spotify. Installing it with
 the same package name requires removing stock Spotify first, which removes
 its local app data and downloads. Keep the patcher's signing key for future
 updates; a different key requires another uninstall.
-
-Manager source installation will be documented after the first bundle and
-source-add flow have been verified. There is no verified stable release yet.
 
 ## Development
 
