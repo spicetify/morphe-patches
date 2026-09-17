@@ -66,8 +66,10 @@ Stock Spotify subsequently reached its welcome screen in the same emulator.
 The combined patched APK installs and reaches the same welcome-screen
 accessibility controls on a controlled retry. Hardware-rendered screenshots
 showed a black app area. Restarting the emulator with SwiftShader and Vulkan
-disabled restored visible Manager rendering. Spotify's visual color checks
-and logged-in behavior remain unverified.
+disabled restored visible Manager rendering. Spotify's welcome and login
+controls respond through accessibility. Its login activity sets Android's
+`SECURE` window flag, so black captures there do not prove a rendering bug.
+Spotify's visual color checks and logged-in behavior remain unverified.
 
 Morphe Manager 1.31.1 imports the Android bundle and lists both patches.
 Enabling **Experimental app versions** makes Spotify visible. The default
