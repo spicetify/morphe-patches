@@ -1,1 +1,1 @@
-// Root build configuration for morphe-patches-template
+// Build configuration is supplied by the Morphe patches plugin.

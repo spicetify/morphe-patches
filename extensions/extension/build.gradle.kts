@@ -1,7 +1,11 @@
 extension {
-    name = "extensions/extension.mpe"
+    name = "extensions/spotify.mpe"
 }
 
 android {
-    namespace = "app.template.extension"
+    namespace = "app.spicetify.extension.spotify"
+}
+
+dependencies {
+    testImplementation("junit:junit:4.13.2")
 }

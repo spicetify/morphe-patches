@@ -122,9 +122,16 @@ gradle-app.setting
 # Dependency directories
 node_modules/
 
-# gradle properties, due to Github token
-./gradle.properties
-
 # Ignore IDEA files
 .idea/
 local.properties
+
+# Local APK inputs and signing material
+*.apkm
+*.apks
+*.xapk
+*.mpp
+*.mpe
+*.keystore
+*.jks
+.morphe-data/

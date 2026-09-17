@@ -1,14 +1,13 @@
-group = "app.template"
+group = "app.spicetify"
 
 patches {
-    // TODO: Update this section with your project details.
     about {
-        name = "UserXYZ Patches"
-        description = "Patches for apps I like"
-        source = "git@github.com:UserXYZ/morphe-patches.git"
-        author = "Awesome dev"
+        name = "Spicetify Android patches"
+        description = "Spotify Android customization patches compatible with Morphe"
+        source = "https://github.com/spicetify/morphe-patches"
+        author = "Spicetify"
         contact = "na"
-        website = "na"
+        website = "https://github.com/spicetify/morphe-patches"
         license = "GPLv3"
     }
 }
@@ -18,6 +17,8 @@ patches {
 val patchListGeneratorClasspath = configurations.create("patchListGeneratorClasspath")
 
 dependencies {
+    testImplementation("org.junit.jupiter:junit-jupiter:5.11.4")
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
     compileOnly(libs.gson)
     patchListGeneratorClasspath(libs.gson)
 }
@@ -36,4 +37,8 @@ tasks {
     publish {
         dependsOn("generatePatchesList")
     }
+}
+
+tasks.test {
+    useJUnitPlatform()
 }
