@@ -74,8 +74,7 @@ Spotify's visual color checks and logged-in behavior remain unverified.
 Morphe Manager 1.31.1 imports the Android bundle and lists both patches.
 Enabling **Experimental app versions** makes Spotify visible. The default
 flow accepts the stock split archive and starts the sharing patch. Cancelling
-that job and confirming **Stop patcher** returns to the app list. Completing
-patching and installation through Manager remains unverified.
+that job and confirming **Stop patcher** returns to the app list.
 
 An earlier local import contained JVM classes without `classes.dex`, and
 Manager reported zero patches. Replacing that stale file with the
@@ -101,8 +100,21 @@ https://raw.githubusercontent.com/spicetify/morphe-patches/refs/heads/dev/patche
 
 The explicit `refs/heads/dev` URL keeps this feed on experimental releases.
 Enable **Experimental app versions** in the source's controls to show Spotify.
-The remote source was tested with the duplicate local source disabled. A later
-version update and completed Manager patch/install still need verification.
+The remote source was tested with the duplicate local source disabled.
+In **Expert mode**, both patches were selected with default colors. Manager
+merged the five stock splits, patched with its default **Fast** bytecode mode
+and 896 MB process limit, and reported success. Its installation flow detected
+the existing Desktop-signed test app, explained the certificate conflict and
+data loss, and offered uninstall. After uninstalling that unauthenticated test
+app, Android installed the Manager-built APK and Manager marked it installed.
+
+The installed APK was copied back from the emulator and independently checked.
+Its sharing call and helper, all 1,145 default colors and resource IDs, the ten
+expected theme changes, and Android signing verification pass. Its SHA-256 is
+`23dcb4098406f60c70bb6657f22ece21d524f6f36332afe0401e5f57f69b43b3`.
+The Manager-built app reaches its welcome and login screens after an emulator
+restart. A later source version update and same-key reinstall still need
+verification.
 
 ## Runtime and release checklist
 
@@ -112,8 +124,8 @@ Use the normal Manager entry point before claiming release readiness.
 - [x] Inspect generated patch metadata and extension contents.
 - [x] Patch sharing, colors, and their combination against the stock fixture.
 - [ ] Check informative failures for unsupported inputs and invalid options.
-- [ ] Install and launch the output in a disposable Android environment.
-- [ ] Add the source in Manager and patch through its visible flow.
+- [x] Install and launch the output in a disposable Android environment.
+- [x] Add the source in Manager and patch through its visible flow.
 - [ ] Test login, playback, queue, Connect, background playback, notifications.
 - [ ] Test sharing for tracks, albums, playlists, episodes, and timestamps.
 - [ ] Check Home, library, player, settings, and dialog colors.

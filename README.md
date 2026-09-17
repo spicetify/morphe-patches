@@ -43,9 +43,9 @@ change only selected Android resources, not every Spotify screen.
 ## Try the experimental source
 
 The [first prerelease](https://github.com/spicetify/morphe-patches/releases/tag/v1.0.0-dev.1)
-is available for testing. Source download and patch discovery work in Morphe
-Manager 1.31.1. Completed Manager installation, playback, and real sharing
-still need verification; there is no verified stable release.
+is available for testing. Source download, patching, and installation work in
+Morphe Manager 1.31.1 on the test emulator. Playback and real sharing still
+need verification; there is no verified stable release.
 
 To install the experimental source in Manager:
 
