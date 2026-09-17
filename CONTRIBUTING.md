@@ -67,12 +67,20 @@ and local changes in [third-party sources](THIRD_PARTY_NOTICES.md).
 
 The repository retains the official template's semantic-release workflow.
 Work targets `dev`; `feat:` and `fix:` commits produce prereleases there.
-Users must enable prereleases for that source in Manager. Merge `dev` into
-`main` without squashing only when the stable verification pass is complete.
+The README's explicit `refs/heads/dev` source URL always follows prereleases;
+enable **Experimental app versions** separately to show the initial Spotify
+target. Sources configured through a regular repository URL also need their
+prerelease setting enabled once a stable feed exists. Merge `dev` into `main`
+without squashing only when the stable verification pass is complete.
 
 Stable release automation is disabled unless the repository variable
 `STABLE_RELEASE_ENABLED` is `true`. Enable it only after recording the
 required runtime evidence. Tests run before release preparation.
+
+Check that the push starts a workflow for the expected commit. If no run
+appears, investigate the trigger and use **Actions > Release > Run workflow**
+with branch **dev** for an explicit experimental build. A manual run proves
+the build and release jobs, not the automatic push trigger.
 
 Let automation generate `patches-list.json`, `patches-bundle.json`, and the
 changelog. Do not manually create releases or upload bundles. Preserve
