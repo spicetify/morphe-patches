@@ -46,8 +46,8 @@ Use your installed build-tools version in those paths. Run with Java 21 on
 patch is disabled. Omit `--theme` when colors are disabled; otherwise pass
 the exact background, accent, and pressed-accent values used for patching.
 The checker verifies default color values and IDs, equivalent relocated XML
-selectors, sanitizer injection, and the APK signature. It does not execute
-Spotify or cover every resource configuration.
+selectors, the local builder hook, both final URL hooks, and the APK signature.
+It does not execute Spotify or cover every resource configuration.
 
 Check refusal paths against the same stock base APK and bundle:
 
@@ -58,10 +58,11 @@ python3 scripts/verify-failures.py \
   --desktop /path/to/morphe-desktop-all.jar
 ```
 
-This command creates temporary APK copies with a missing sharing fingerprint
-or renamed theme resource, then checks all three invalid color options. Each
-case must report the expected patch failure, exit with status 1, and produce
-no output APK. Temporary copies are deleted afterward. These controlled
+This command creates temporary APK copies with a missing sharing fingerprint,
+changed server response field, or renamed theme resource, then checks all three
+invalid color options. Each case must report the expected patch failure, exit
+with status 1, and produce no output APK. Temporary copies are deleted
+afterward. These controlled
 changes test refusal paths, not compatibility with another Spotify release.
 The command never installs an app. Use Java 21 on `PATH` or pass `--java`.
 

@@ -154,8 +154,43 @@ was disabled.
 
 The installed package reports Spotify `9.1.80.2221`, version code `145767611`,
 and `arm64-v8a`. Its sole installed APK has the same SHA-256 as the exported
-Manager build above. Android accepted the normal launcher intent. Login,
-playback, and sharing behavior still need runtime verification.
+Manager build above. Android accepted the normal launcher intent. The device
+owner signed in successfully.
+
+## Signed-in phone tests and sharing fix
+
+The installed `v1.0.0-dev.1` build loads Home and an album page. Playback
+advances through tracks, the queue opens, and Android reports local playback.
+Playback continues after leaving Spotify. Android's media card pauses and
+resumes playback, with matching `PAUSED` and `PLAYING` session states. The
+test ended paused. The device owner confirmed normal audible playback.
+The device picker reaches the nearby-devices permission explanation; no
+permission was granted and no Connect transfer was tested.
+
+The normal album flow, **Share > More sharing options**, exposed a defect:
+Android's share preview still contained `si` and
+`utm_source=native-share-menu`. Static inspection found a server URL generator
+that bypasses the patched local builder. Both generators produce a common
+result with separate shareable URL, share ID, Spotify URI, and full URL fields.
+The native share intent reads that result's URL. This proves the bypass exists;
+the phone's exact generator branch was not instrumented.
+
+The fix also sanitizes the two final URL arguments before storage, preserving
+the separate share ID and Spotify URI. Resolution follows named protobuf
+fields and their getter-to-constructor dataflow, and rejects incompatible or
+ambiguous layouts. The original local hook remains for its other caller.
+
+The updated artifact checker rejects the old phone APK because both final URL
+hooks are absent. A newly patched local APK passes all three hook checks,
+signature verification, and preservation of all 1,145 default colors and IDs.
+Its SHA-256 is
+`cea209048243490de3dcbc07f85df40fc1c01002c5175ca3644882006d97aeaa`.
+A combined build using Fast mode and an 896 MB heap also passes, including
+the ten expected default theme changes. Its SHA-256 is
+`cb5068005b5a3ee6e9bc266ea2e6780872d61ed9d741ca597b6d11ae19ae32e3`.
+Seven resolver tests, twelve verifier cases, the existing unit suite, and six
+actual-APK refusal cases pass. These are source and artifact checks. The fix
+still needs a same-key Manager update and a repeated phone sharing test.
 
 ## Runtime and release checklist
 

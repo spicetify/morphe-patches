@@ -17,8 +17,9 @@ def altered_apk(source, target, kind):
     with zipfile.ZipFile(source) as original, zipfile.ZipFile(target, "w") as altered:
         for entry in original.infolist():
             data = original.read(entry)
-            if kind == "sharing" and entry.filename.endswith(".dex"):
-                old, new = b"Invalid uri ", b"Invalid urj "
+            if kind in ("sharing", "sharing-response") and entry.filename.endswith(".dex"):
+                old, new = ((b"Invalid uri ", b"Invalid urj ") if kind == "sharing"
+                            else (b"fullUrl_", b"testUrl_"))
                 count = data.count(old)
                 if count:
                     data = bytearray(data.replace(old, new))
@@ -49,6 +50,8 @@ def main():
     cases = [
         ("missing-sharing-builder", "sharing", "Clean sharing links", None,
          "Expected one Spotify share URL builder, found 0."),
+        ("changed-sharing-response", "sharing-response", "Clean sharing links", None,
+         "Spotify sharing response getter for fullUrl_ changed."),
         ("missing-theme-resource", "theme", "Theme colors", None,
          "Unsupported Spotify color resources: missing dark_base_background_base"),
     ]
