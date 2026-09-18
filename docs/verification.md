@@ -476,6 +476,17 @@ provider is not exported. The user confirmed hearing the synthetic tone.
 Disabling during an active read still needs a runtime check. No personal
 server credentials or music were used.
 
+Two additional loopback regression tests pause the response body until the
+client is blocked in a network read, then disable the connection. Audio reads
+already reject the completed response and subsequent requests. Folder reads
+initially returned the final listing despite cancellation; a cancellation
+check before returning the response fixes that gap. Both cases now pass,
+alongside all 55 extension tests, 34 patch tests, 26 sharing-verifier cases,
+Android lint, and bundle packaging. The existing configuration guard also
+prevents an obsolete scan from publishing its index. These JVM tests do not
+replace the pending Android test. Cancellation does not immediately close a
+stalled socket; the ten-second network timeout still applies.
+
 The live review also found awkward singular track-count text and an oversized
 password hint. The source now uses **Tracks ready: 1**, smaller proportional
 input text, and a short **Saved password** hint with the retention rule in

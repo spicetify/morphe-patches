@@ -5,6 +5,7 @@ import java.io.*;
 import java.net.*;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.*;
 import org.junit.*;
 import org.junit.runner.RunWith;
@@ -148,6 +149,58 @@ public class WebDavTest {
         assertThrows(IOException.class, disabled::scan);
         assertThrows(IOException.class, () -> disabled.read(track(), 0, 1, new byte[1]));
         assertEquals(0, requests.get());
+    }
+    @Test public void disablingDuringListingReadDiscardsTheResponse() throws Exception {
+        assertCancelledRead(true);
+    }
+    @Test public void disablingDuringAudioReadDiscardsTheResponse() throws Exception {
+        assertCancelledRead(false);
+    }
+    private void assertCancelledRead(boolean listing) throws Exception {
+        AtomicBoolean active = new AtomicBoolean(true);
+        CountDownLatch headersSent = new CountDownLatch(1);
+        CountDownLatch releaseBody = new CountDownLatch(1);
+        byte[] body = listing
+                ? bytes(listing("/music/song.mp3", "<d:getcontentlength>1024</d:getcontentlength>"))
+                : Arrays.copyOfRange(audio, 0, 32);
+        server.createContext("/music/", exchange -> {
+            requests.incrementAndGet();
+            if (!listing) exchange.getResponseHeaders().set("Content-Range", "bytes 0-31/1024");
+            exchange.sendResponseHeaders(listing ? 207 : 206, body.length);
+            headersSent.countDown();
+            try { assertTrue("Response body was not released", releaseBody.await(5, TimeUnit.SECONDS)); }
+            catch (InterruptedException ex) { throw new IOException(ex); }
+            exchange.getResponseBody().write(body);
+        });
+        WebDav client = new WebDav(config, active::get);
+        FutureTask<Object> result = new FutureTask<>(() -> listing
+                ? client.scan() : client.read(track(), 0, 32, new byte[32]));
+        Thread reader = new Thread(result, "cancelled-webdav-read");
+        reader.start();
+        try {
+            assertTrue(headersSent.await(3, TimeUnit.SECONDS));
+            long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(3);
+            boolean readingBody = false;
+            while (!readingBody && System.nanoTime() < deadline) {
+                StackTraceElement[] stack = reader.getStackTrace();
+                readingBody = Arrays.stream(stack).anyMatch(frame -> frame.getClassName().equals(WebDav.class.getName())
+                        && frame.getMethodName().equals(listing ? "copy" : "read"))
+                        && Arrays.stream(stack).anyMatch(frame -> frame.getClassName().startsWith("sun.nio.ch.")
+                        && (frame.getMethodName().equals("read") || frame.getMethodName().equals("park")));
+                if (!readingBody) Thread.sleep(1);
+            }
+            assertTrue("Client never blocked waiting for the response body", readingBody);
+            active.set(false);
+            releaseBody.countDown();
+            ExecutionException failure = assertThrows(ExecutionException.class, () -> result.get(3, TimeUnit.SECONDS));
+            assertTrue(failure.getCause() instanceof IOException);
+            assertThrows(IOException.class, () -> client.read(track(), 0, 1, new byte[1]));
+            assertEquals(1, requests.get());
+        } finally {
+            releaseBody.countDown();
+            reader.join(3500);
+            assertFalse("Cancelled reader did not stop", reader.isAlive());
+        }
     }
     @Test public void oldHashCollisionProducesDifferentTrackIds() {
         RemoteTrack a = new RemoteTrack(config, config.root.resolve("Aa/song.mp3"), 1024, null);

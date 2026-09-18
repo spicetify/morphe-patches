@@ -180,6 +180,7 @@ public final class WebDav {
                     body.write(buffer, 0, count);
                 }
             }
+            check();
             return body.toByteArray();
         } finally { socket.close(); }
     }
