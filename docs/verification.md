@@ -148,9 +148,14 @@ artifact, not evidence of installation or authenticated runtime behavior.
 
 After explicit approval of local-data loss, Manager uninstalled stock Spotify
 and started installing this APK. Android's Play Protect prompt requested
-biometric confirmation for a one-time installation without scanning. The
-installation is waiting for the device owner's confirmation. A package check
-does not yet show Spotify installed. No Play Protect setting was disabled.
+biometric confirmation for a one-time installation without scanning. After
+the device owner confirmed, installation completed. No Play Protect setting
+was disabled.
+
+The installed package reports Spotify `9.1.80.2221`, version code `145767611`,
+and `arm64-v8a`. Its sole installed APK has the same SHA-256 as the exported
+Manager build above. Android accepted the normal launcher intent. Login,
+playback, and sharing behavior still need runtime verification.
 
 ## Runtime and release checklist
 
@@ -168,5 +173,5 @@ Use the normal Manager entry point before claiming release readiness.
 - [ ] Test source updates, same-key reinstall, cancellation, and stock recovery.
 - [ ] Verify a push starts CI and prerelease automation for the expected commit.
 
-No patched application has been installed on the source phone. No stable
-compatibility claim is made from a successful build or static match.
+The verified clean-sharing build is installed on the source phone. No stable
+compatibility claim is made from installation or static verification alone.
