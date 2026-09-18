@@ -189,8 +189,40 @@ A combined build using Fast mode and an 896 MB heap also passes, including
 the ten expected default theme changes. Its SHA-256 is
 `cb5068005b5a3ee6e9bc266ea2e6780872d61ed9d741ca597b6d11ae19ae32e3`.
 Seven resolver tests, twelve verifier cases, the existing unit suite, and six
-actual-APK refusal cases pass. These are source and artifact checks. The fix
-still needs a same-key Manager update and a repeated phone sharing test.
+actual-APK refusal cases pass. Phone verification follows below.
+
+## Verified dev.2 update on Pixel 8
+
+The fix shipped in experimental release `v1.0.0-dev.2`. Its published bundle
+has SHA-256
+`9d12f13ef91afde27bdeba029735acf6994f07a8b2a06e5dd1f2d6fa296143d5`.
+The release tag contains fix commit `c01bddb`, and GitHub build provenance
+verification passed. Release run `35332792343` passed tests, publishing, and
+attestation. The push did not start Actions; manual workflow dispatch was
+required again. Stable publishing remains disabled.
+
+Manager's source update control fetched `dev.2`. The existing Spotify entry's
+**Patch** action rebuilt the sharing-only profile, and **Save** exported it.
+The export passed all three hook checks, signature verification, and all 1,145
+unchanged default color values and IDs. Its signing certificate matches the
+previous Manager build. Installing through Manager updated Spotify without
+an uninstall. The installed APK exactly matches the verified export:
+`28e4f09b2cf395afce4ef3dd36e36aaa61c3c1ffc8f9a489ba6112777ea3c6c2`.
+
+The signed-in Home screen and paused player state survived the update. The
+device owner confirmed the updated app works. Android's share preview showed
+the expected album, track, and playlist destinations with no query parameters.
+The playlist preview includes Spotify's introductory text before the clean
+URL. No recipient was selected and no message was sent. Episode sharing,
+timestamp preservation, copied-link contents, and opening the resulting links
+still need runtime checks. Device interaction stopped after the owner's
+confirmation. The nearby-device prompt was declined; Connect remains untested.
+
+CI also uploaded a bundle with the previous version's filename alongside the
+correct `dev.2` asset. The extra asset was removed; the metadata feed always
+pointed to the correct bundle. Commit `1caf103` removes validation-build bundles
+before release version selection. Workflow run `35333603978` passed, but the
+corrected upload behavior still needs observation on the next versioned release.
 
 ## Runtime and release checklist
 
