@@ -75,8 +75,6 @@ These checks are required before calling the settings feature complete.
   queue and notification controls and existing Spotify settings actions.
 
 Implementation and runtime evidence belong in [verification](verification.md).
-This design does not establish that the settings feature has been built or
-verified.
 
 ## Current implementation status
 
@@ -96,5 +94,8 @@ refuse patching too. Review the trace before replacing a snapshot.
 Four preference tests, two snapshot tests, the existing unit suite, 26 sharing
 verifier cases, Android lint, and the bundle build pass. Sharing-only,
 theme-only, and combined APKs build. Seven altered-input or invalid-option
-cases fail without output APKs. Device verification is in progress; the
-published `dev.2` prerelease still has no settings menu.
+cases fail without output APKs. The published `dev.3` prerelease adds the
+settings menu. On the Pixel 8, the native row, Back navigation, immediate
+sharing toggle, restart persistence, playback, rotation, and enlarged text
+pass. Theme-only and combined settings controls still need signed-in runtime
+checks. See the verification record for the remaining review and test gaps.

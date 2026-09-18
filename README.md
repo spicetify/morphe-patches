@@ -48,10 +48,11 @@ change only selected Android resources, not every Spotify screen.
 ## Try the experimental source
 
 The [experimental releases](https://github.com/spicetify/morphe-patches/releases)
-are available for testing. Version `1.0.0-dev.2` was patched and installed
-through Morphe Manager 1.31.1 on a Pixel 8. Login, playback, and clean album,
-track, and playlist sharing links were verified. Other checks remain open in
-the [verification record](docs/verification.md). There is no stable release.
+are available for testing. Version `1.0.0-dev.3` was patched and installed
+through Morphe Manager 1.31.1 on a Pixel 8, preserving the existing login.
+The in-app settings menu, immediate sharing toggle, saved preference after
+restart, and playback were verified. Other checks remain open in the
+[verification record](docs/verification.md). There is no stable release.
 
 Use a spare Android device or emulator for the initial tests. A patched APK
 uses a different signing certificate from stock Spotify. Installing it with
@@ -85,10 +86,29 @@ instead of adding it again. To add it manually and patch Spotify:
 8. Wait for **Patching complete**, then select **Install**. If Manager reports
    a certificate conflict, uninstall the existing app only after accepting
    the data loss described above. Confirm installation in Android's dialog.
-9. Open Spotify from Android's app launcher and sign in.
+9. Open Spotify from Android's app launcher. Sign in if needed.
 
 This feed stays on experimental releases. Keep your own stock APK or split-APK
 archive for patching; the repository does not distribute Spotify.
+
+## Change settings in Spotify
+
+Version `1.0.0-dev.3` adds a **Spicetify** row to Spotify's settings.
+
+1. Open your profile menu, then **Settings and privacy**.
+2. Scroll down and select **Spicetify**, just above **Log out**.
+3. Turn **Clean sharing links** on or off. The next share uses your choice
+   immediately. The setting survives restarting Spotify.
+
+Only installed patches appear here. If you selected **Theme colors**, the
+screen explains how to change them in Manager and repatch Spotify. Colors
+are still selected when patching; they cannot be changed live in Spotify.
+
+To update an existing Manager-signed installation, update **Spicetify Android
+patches** in **Sources**, open Spotify's entry in Manager, and select **Patch**.
+Install the resulting APK with the same Manager signing key to preserve app
+data. If Android reports a certificate conflict, stop and check the signing
+key before considering an uninstall.
 
 ## Try a local build
 
