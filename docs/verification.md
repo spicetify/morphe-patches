@@ -145,7 +145,12 @@ The APK exported through Manager's **Save** action has SHA-256
 Independent checks confirm one sharing call and helper, all 1,145 default color
 values and IDs unchanged, and a valid APK signature. This is a phone-built
 artifact, not evidence of installation or authenticated runtime behavior.
-Stock Spotify remains installed on this device.
+
+After explicit approval of local-data loss, Manager uninstalled stock Spotify
+and started installing this APK. Android's Play Protect prompt requested
+biometric confirmation for a one-time installation without scanning. The
+installation is waiting for the device owner's confirmation. A package check
+does not yet show Spotify installed. No Play Protect setting was disabled.
 
 ## Runtime and release checklist
 
