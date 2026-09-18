@@ -49,6 +49,22 @@ The checker verifies default color values and IDs, equivalent relocated XML
 selectors, sanitizer injection, and the APK signature. It does not execute
 Spotify or cover every resource configuration.
 
+Check refusal paths against the same stock base APK and bundle:
+
+```sh
+python3 scripts/verify-failures.py \
+  --stock /path/to/stock-base.apk \
+  --bundle /path/to/patches.mpp \
+  --desktop /path/to/morphe-desktop-all.jar
+```
+
+This command creates temporary APK copies with a missing sharing fingerprint
+or renamed theme resource, then checks all three invalid color options. Each
+case must report the expected patch failure, exit with status 1, and produce
+no output APK. Temporary copies are deleted afterward. These controlled
+changes test refusal paths, not compatibility with another Spotify release.
+The command never installs an app. Use Java 21 on `PATH` or pass `--java`.
+
 Record the stock APK's version, version code, ABI, SHA-256, Android version,
 and Morphe version. Apply each patch separately and together, inspect the
 output, and test the affected behavior on Android. Record missing runtime

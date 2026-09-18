@@ -56,6 +56,16 @@ execution. The repeated CLI test now exits 1, reports the invalid format, and
 produces no APK. Regression tests use Morphe's actual option setter for all
 three fields.
 
+On September 18, 2026, `scripts/verify-failures.py` checked the published
+`v1.0.0-dev.1` bundle against disposable copies of the stock base APK. Removing
+the sharing fingerprint's string marker reports zero share URL builders.
+Renaming `dark_base_background_base` reports that missing resource. Submitting
+an invalid value for each of the three color options reports the option's
+format requirement. All five cases exit 1, identify the expected failed patch,
+and produce no output APK. These altered fixtures simulate input drift; they
+do not establish compatibility with another Spotify version or verify Manager's
+failure screens.
+
 A source review found a verifier gap: a same-name call with a mismatched
 method descriptor could pass. Synthetic DEX tests reproduced that false pass.
 The verifier now requires the exact String-to-String descriptor and a public
