@@ -16,17 +16,16 @@ experimental source.
 
 ## Patches
 
-The first milestone contains two patches. Colors are optional because they
-change only selected Android resources, not every Spotify screen.
-
-Development builds also contain optional Home shortcut pinning and HTTPS
-WebDAV server files. These are not in `dev.3` and still need runtime testing.
+The bundle contains four patches. Clean sharing is enabled by default;
+colors, Home shortcut pinning, and HTTPS WebDAV server files are optional.
 See [optional feature setup and limits](docs/optional-features.md).
 
 | Patch | Default | Behavior |
 | --- | --- | --- |
 | Clean sharing links | Enabled | Removes `si`, `pi`, and known `utm_*` parameters from `open.spotify.com` links. Preserves timestamps, context, other parameters, and fragments. |
 | Theme colors | Disabled | Sets selected background, accent, and pressed-accent colors. The default background is AMOLED black. Hardcoded colors and animations can retain Spotify's colors. |
+| Pin shortcuts on Home | Disabled | Moves selected native Home shortcuts first. Configure pins in Spotify's Spicetify settings, then restart Spotify. |
+| Local files from a server | Disabled | Streams an HTTPS WebDAV folder into Local Files. Requires Android 8 or later and byte-range support; configure the server in Spotify's Spicetify settings. |
 
 <!-- PATCHES_START EXPANDED -->
 > **[v1.0.0-dev.3](https://github.com/spicetify/morphe-patches/releases/tag/v1.0.0-dev.3)**&nbsp;&nbsp;•&nbsp;&nbsp;`dev`&nbsp;&nbsp;•&nbsp;&nbsp;2 patches total
@@ -55,7 +54,10 @@ The [experimental releases](https://github.com/spicetify/morphe-patches/releases
 are available for testing. Version `1.0.0-dev.3` was patched and installed
 through Morphe Manager 1.31.1 on a Pixel 8, preserving the existing login.
 The in-app settings menu, immediate sharing toggle, saved preference after
-restart, and playback were verified. Other checks remain open in the
+restart, and playback were verified. The optional four-patch profile also
+passed Manager installation, Home pinning, synthetic server playback and
+seeking, interrupted scans, and recovery on that device. Other checks remain
+open in the
 [verification record](docs/verification.md). There is no stable release.
 
 Use a spare Android device or emulator for the initial tests. A patched APK
@@ -78,15 +80,18 @@ instead of adding it again. To add it manually and patch Spotify:
 3. Expand **Spicetify Android patches** and enable **Experimental app versions**.
 4. Return to the app list. Spotify appears with the target version
    `9.1.80.2221`, ARM64 build `145767611`.
-5. Optional: To customize colors, open **Settings > Advanced** and enable
+5. Optional: To select colors, Home pins, or server files, open
+   **Settings > Advanced** and enable
    **Expert mode** before selecting Spotify. The default flow applies only
    **Clean sharing links**.
 6. Select **Spotify**, choose **No, I already have an APK**, and select your
-   original APK or split-APK archive. Expert mode's file picker requires
-   Android's **All files access** permission for Manager.
+   original APK or split-APK archive. To use Android's system picker without
+   granting **All files access**, turn off **Settings > System > Custom file
+   picker** in Manager first.
 7. Read the experimental-support notice and select **Proceed anyway** if you
-   want to test this build. In Expert mode, enable **Theme colors** if wanted,
-   use its settings to adjust colors, then select **Proceed to patching**.
+   want to test this build. In Expert mode, select the optional patches you
+   want. Use **Theme colors** settings to adjust colors before patching, then
+   select **Proceed to patching**.
 8. Wait for **Patching complete**, then select **Install**. If Manager reports
    a certificate conflict, uninstall the existing app only after accepting
    the data loss described above. Confirm installation in Android's dialog.
@@ -107,6 +112,8 @@ Version `1.0.0-dev.3` adds a **Spicetify** row to Spotify's settings.
 Only installed patches appear here. If you selected **Theme colors**, the
 screen explains how to change them in Manager and repatch Spotify. Colors
 are still selected when patching; they cannot be changed live in Spotify.
+Home pins and server files have their own controls here when installed.
+Follow the [optional feature setup](docs/optional-features.md) to use them.
 
 To update an existing Manager-signed installation, update **Spicetify Android
 patches** in **Sources**, open Spotify's entry in Manager, and select **Patch**.

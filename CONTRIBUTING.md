@@ -56,7 +56,7 @@ Verify the bundle's release checksum and provenance separately; matching an
 untrusted bundle does not establish that its code is correct.
 It does not execute Spotify or cover every resource configuration.
 
-For development builds with optional features, add `--home-pins` and/or
+For builds with optional features, add `--home-pins` and/or
 `--server-files` to match the selected patches. The checker validates their
 capability flags and the server provider's private manifest declaration.
 The four-argument Java settings checker remains available for `dev.3` APKs;
