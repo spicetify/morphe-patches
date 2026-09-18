@@ -536,6 +536,49 @@ says disabling stops new requests and clears the track list, avoiding the
 previous promise of immediate server-access shutdown. That sentence was
 checked in source and the build, not reinstalled for another visual pass.
 
+## Published optional-feature prerelease
+
+[Release run 35360203169](https://github.com/spicetify/morphe-patches/actions/runs/35360203169)
+passed tests, lint, bundle packaging, release preparation, and attestation
+on source `5cff6d2`. It published
+[v1.0.0-dev.4](https://github.com/spicetify/morphe-patches/releases/tag/v1.0.0-dev.4)
+as an experimental prerelease. The tag points to generated release commit
+`39bb8b1`, which contains that source. No push-triggered run appeared; this
+was an explicit dispatch. Stable publishing remains disabled.
+
+The downloaded bundle has SHA-256
+`21057c225d942aa311c64573c62c85b36587bd9abb9715c82f3589f7f43fcfaf`,
+matching GitHub's asset digest. `gh attestation verify` passes and identifies
+the repository's `release.yml`, `dev`, source `5cff6d2`, and the run above.
+The bundle's extension is byte-for-byte identical to the final local
+`c98c63f` build. The generated catalog contains exactly four public patches;
+only clean sharing is enabled by default. Every target remains experimental
+Spotify `9.1.80.2221`, ARM64 version code `145767611`.
+
+Morphe Desktop applies all four patches from the downloaded release to the
+private stock base APK. The inspection APK has SHA-256
+`2eb6c2ab70f7b661bf21840100db08bf45637c3511749a0257881eaa01c3ec5e`.
+Independent checks pass for the exact bridge, all four capabilities,
+private components, unchanged permissions, APK signature, and ten expected
+theme-color changes. This base-only APK was not installed. The two altered
+Home and local-files models each report the expected incompatibility, exit
+with status 1, and produce no output APK.
+
+On the Pixel, Manager's existing remote source updates to `dev.4` and lists
+four patches. The obsolete local test source is disabled. With Expert mode
+off, the normal patch flow selects one patch from the published source.
+Its exported default APK has SHA-256
+`e509751fdb2239706449f2bd9d3682e67193fb453cfa6a0144ee4fdb536ea27a`.
+Independent verification confirms clean sharing, the exact release bridge,
+no optional capabilities or server provider, unchanged colors and
+permissions, and the existing Manager signing certificate.
+
+Manager and Android complete the same-key update. The installed checksum
+matches the export, login is preserved, and the native settings row opens
+the sharing-only screen with its saved switch enabled. This default `dev.4`
+build is now installed on the phone. The earlier `dev.3` recovery APK remains
+available. No emulator or fixture server was started for this release pass.
+
 ## Runtime and release checklist
 
 Use the normal Manager entry point before claiming release readiness.

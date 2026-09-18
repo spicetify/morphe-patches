@@ -52,14 +52,12 @@ See [optional feature setup and limits](docs/optional-features.md).
 
 ## Try the experimental source
 
-The [experimental releases](https://github.com/spicetify/morphe-patches/releases)
-are available for testing. Version `1.0.0-dev.3` was patched and installed
-through Morphe Manager 1.31.1 on a Pixel 8, preserving the existing login.
-The in-app settings menu, immediate sharing toggle, saved preference after
-restart, and playback were verified. The optional four-patch profile also
-passed Manager installation, Home pinning, synthetic server playback and
-seeking, interrupted scans, and recovery on that device. Other checks remain
-open in the
+The current [experimental release](https://github.com/spicetify/morphe-patches/releases/tag/v1.0.0-dev.4)
+is `1.0.0-dev.4`. Manager 1.31.1 downloads all four patches, and its default
+profile was patched and installed on a Pixel 8 while preserving login and
+the sharing setting. Runtime testing also covers Home pinning, synthetic
+server playback and seeking, interrupted scans, and recovery on that device.
+See the exact tested artifacts and remaining checks in the
 [verification record](docs/verification.md). There is no stable release.
 
 Use a spare Android device or emulator for the initial tests. A patched APK
