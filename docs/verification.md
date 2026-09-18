@@ -412,6 +412,45 @@ unpinning, Android HTTPS validation, metadata extraction, Local Files
 playback/seeking, disabling during reads, and configuration replacement.
 The default Pixel installation remains the published `dev.3` sharing profile.
 
+### Recreated emulator installation check
+
+After the temporary test files were removed, the stock archive and the
+Manager-signed default recovery APK were recovered from their known Downloads
+paths on the Pixel. Their checksums match the recorded fixtures. The original
+Java 21 build environment was restored from a checksum-verified distribution.
+
+Commit `47a04d5` avoids unchanged status updates, repeated audio-pattern
+compilation, and repeated linear searches for duplicate tracks. The 53
+extension tests, 34 patch tests, 26 sharing-verifier cases, Android lint, and
+Android bundle build pass. The frozen bundle has SHA-256
+`25e717af66944f3396eb8b0f5e54a4939913bb9f8cc7811d33be1a3b7690d70e`.
+
+A recreated disposable Android 16 ARM64 emulator used Manager 1.31.1, the
+640 MB process runtime, and the stock split archive. Through Manager's visible
+flow, the local bundle imported, all four patches were selected, patching
+completed, and Android installed the result. Launching Spotify's normal main
+Activity reached **Log in** and **Sign up free**. No account was entered. The
+emulator was then closed.
+
+The installed APK has SHA-256
+`523eb6690b6b56962423511960ec4f075f3b97303e3dbea5dd80ef85637b638e`.
+Independent artifact checks pass against the frozen bundle for sharing hooks,
+all four capabilities, the canonical settings bridge, private components,
+unchanged permissions, signature, and ten expected theme-color changes.
+This proves installation and unauthenticated launch, not signed-in Home
+ordering or server-file playback.
+
+The Pixel's local bundle import works through Android's system picker after
+turning off Manager's **System > Custom file picker** preference. It does not
+require granting **All files access** on the phone. Manager built the same
+four-patch profile from its saved original APK with the 1,024 MB process
+runtime. Its exported APK has SHA-256
+`7b64bd88ff6ba397a1f182376c2da6ba477de5e59acf68130332657684ae6b85`.
+It passes the same artifact checks and uses the existing Pixel Manager
+signing certificate. Android's update flow is waiting for direct fingerprint
+confirmation. The installed APK still matches the default sharing profile;
+signed-in optional-feature testing remains open.
+
 ## Runtime and release checklist
 
 Use the normal Manager entry point before claiming release readiness.
