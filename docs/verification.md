@@ -579,6 +579,38 @@ the sharing-only screen with its saved switch enabled. This default `dev.4`
 build is now installed on the phone. The earlier `dev.3` recovery APK remains
 available. No emulator or fixture server was started for this release pass.
 
+### Desktop comparison after phone catalog failures
+
+On September 18, 2026, the Pixel returned no songs for **Teardrop** while
+still returning playlist results. Opening **Untrue** from Home reported
+**The tracks on this release are not available.** A same-key ADB update to
+the previously verified default `dev.3` APK reproduced that album failure.
+Its installed checksum matched the retained recovery artifact. Restoring
+default `dev.4` preserved login, and its installed checksum again matched
+`e509751fdb2239706449f2bd9d3682e67193fb453cfa6a0144ee4fdb536ea27a`.
+A public podcast episode also showed **Something went wrong** on `dev.4`;
+the episode was not checked on `dev.3`. Android reported validated Internet
+connectivity and no captive portal, which does not prove Spotify endpoint
+access.
+
+The running macOS Spotify client loaded all 13 tracks from **Untrue** through
+its visible Home shortcut. Playing **Archangel** advanced from 0:00 to 0:25
+and 0:38 with the Pause control visible. This verifies desktop player
+progress, not audible output. Opening that exact album's public URL on the
+Pixel still produced the unavailable-tracks message.
+
+Desktop's Connect menu listed the Pixel. Selecting it changed the device
+label to **Playing on Pixel 8**, but cleared the desktop track and timeline;
+the phone showed no player. Device selection alone does not pass the Connect
+playback check. The desktop menu was then used to select **This computer**
+again. The disposable emulator is closed.
+
+The album failure spans both tested phone builds while desktop playback
+works. Its cause remains unresolved; these observations neither establish a
+general service outage nor isolate the patches as the cause. Phone playback,
+Connect, and content-dependent sharing checks remain open. No phone logout,
+uninstall, data reset, or network-setting change was used in this comparison.
+
 ## Runtime and release checklist
 
 Use the normal Manager entry point before claiming release readiness.
