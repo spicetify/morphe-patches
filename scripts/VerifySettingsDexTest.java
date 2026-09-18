@@ -21,11 +21,24 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
+import java.util.function.UnaryOperator;
 
 class VerifySettingsDexTest {
     static final String P = VerifySettingsDex.PREFIX, B = VerifySettingsDex.BRIDGE;
     static Map<String, ClassDef> original;
     static int cases;
+
+    static void activity(UnaryOperator<Method> mutation, String superclass) {
+        var cls = VerifySettingsDex.classes.get(P + "SpicetifySettingsActivity;");
+        var methods = new ArrayList<Method>();
+        for (var m : cls.getMethods()) {
+            var changed = mutation.apply(m);
+            if (changed != null) methods.add(changed);
+        }
+        VerifySettingsDex.classes.put(cls.getType(), new ImmutableClassDef(
+                cls.getType(), cls.getAccessFlags(), superclass, cls.getInterfaces(),
+                cls.getSourceFile(), cls.getAnnotations(), cls.getFields(), methods));
+    }
 
     static void mutate(String owner, String methodName, Consumer<List<Instruction>> mutation) {
         var cls = VerifySettingsDex.classes.get(owner);
@@ -109,6 +122,15 @@ class VerifySettingsDexTest {
         VerifySettingsDex.load(args[0]);
         original = Map.copyOf(VerifySettingsDex.classes);
         VerifySettingsDex.verify(true, true);
+        reject("missing settings Activity",
+                () -> VerifySettingsDex.classes.remove(P + "SpicetifySettingsActivity;"));
+        reject("settings class is not an Activity",
+                () -> activity(m -> m, "Ljava/lang/Object;"));
+        for (var name : List.of("<init>", "open", "onCreate")) {
+            reject("missing Activity " + name,
+                    () -> activity(m -> m.getName().equals(name) ? null : m,
+                            "Landroid/app/Activity;"));
+        }
         String app = "Lcom/spotify/music/SpotifyApplication;";
         reject("missing startup", () -> mutate(app, "onCreate", c -> c.removeFirst()));
         reject("duplicate startup", () -> mutate(app, "onCreate", c -> c.addFirst(c.getFirst())));

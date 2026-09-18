@@ -106,7 +106,31 @@ class VerifySettingsDex {
         verifyCapability("cleanSharing", sharing);
         verifyCapability("themeColors", theme);
         verifyAnalytics();
+        verifyActivity();
         verifyBridge();
+    }
+
+    static void verifyActivity() {
+        String owner = PREFIX + "SpicetifySettingsActivity;";
+        var activity = classes.get(owner);
+        require(activity != null, "Missing settings Activity");
+        require(AccessFlags.PUBLIC.isSet(activity.getAccessFlags())
+                        && !AccessFlags.ABSTRACT.isSet(activity.getAccessFlags())
+                        && "Landroid/app/Activity;".equals(activity.getSuperclass()),
+                "Settings class must be a public concrete Activity");
+        var constructor = named(owner, "<init>", List.of(), "V");
+        var open = named(owner, "open", List.of("Landroid/app/Activity;"), "V");
+        var onCreate = named(owner, "onCreate", List.of("Landroid/os/Bundle;"), "V");
+        for (var target : List.of(constructor, open, onCreate)) {
+            require(target.getImplementation() != null,
+                    "Missing Activity method body " + target);
+            require(AccessFlags.STATIC.isSet(target.getAccessFlags()) == (target == open),
+                    "Invalid Activity method dispatch " + target);
+            require(AccessFlags.PUBLIC.isSet(target.getAccessFlags())
+                            || (target == onCreate
+                                    && AccessFlags.PROTECTED.isSet(target.getAccessFlags())),
+                    "Inaccessible Activity method " + target);
+        }
     }
 
     static List<Instruction> code(Method m) {
@@ -398,7 +422,7 @@ class VerifySettingsDex {
                         }
                         if (!mr.getDefiningClass().startsWith("Lp/")
                                 && !mr.getDefiningClass().startsWith("Lkotlin/")
-                                && !mr.getDefiningClass().contains("/nativebridge/")) {
+                                && !mr.getDefiningClass().startsWith(PREFIX)) {
                             continue;
                         }
                         var target = method(mr);
@@ -414,7 +438,7 @@ class VerifySettingsDex {
                         checked++;
                     } else if (ref instanceof FieldReference fr) {
                         if (!fr.getDefiningClass().startsWith("Lp/")
-                                && !fr.getDefiningClass().contains("/nativebridge/")) {
+                                && !fr.getDefiningClass().startsWith(PREFIX)) {
                             continue;
                         }
                         var target = field(fr);
@@ -430,7 +454,9 @@ class VerifySettingsDex {
                                                 || i.getOpcode().name().startsWith("SPUT")),
                                 "Static field mismatch " + fr);
                         checked++;
-                    } else if (ref instanceof TypeReference tr && tr.getType().startsWith("Lp/")) {
+                    } else if (ref instanceof TypeReference tr
+                            && (tr.getType().startsWith("Lp/")
+                                    || tr.getType().startsWith(PREFIX))) {
                         require(classes.containsKey(tr.getType()), "Missing type " + tr);
                     }
                 }
