@@ -132,6 +132,21 @@ The Manager-built app reaches its welcome and login screens after an emulator
 restart. A later source version update and same-key reinstall still need
 verification.
 
+## Physical-device preparation
+
+On September 18, 2026, Morphe Manager 1.31.1 on a Pixel 8 running Android 17
+downloaded `v1.0.0-dev.1` from the experimental feed and listed both patches.
+After enabling **Experimental app versions**, its default flow accepted the
+stock split archive through Android's file picker and built the clean-sharing
+patch. Manager did not need **All files access** for this flow.
+
+The APK exported through Manager's **Save** action has SHA-256
+`3e89dcc081a4da519821156734b54dba95851299e9bd156e728bffe4466d9653`.
+Independent checks confirm one sharing call and helper, all 1,145 default color
+values and IDs unchanged, and a valid APK signature. This is a phone-built
+artifact, not evidence of installation or authenticated runtime behavior.
+Stock Spotify remains installed on this device.
+
 ## Runtime and release checklist
 
 Use the normal Manager entry point before claiming release readiness.
