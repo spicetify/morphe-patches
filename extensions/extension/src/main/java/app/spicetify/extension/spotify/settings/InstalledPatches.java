@@ -11,4 +11,12 @@ public final class InstalledPatches {
     public static boolean themeColors() {
         return false;
     }
+
+    public static boolean homePins() {
+        return false;
+    }
+
+    public static boolean serverFiles() {
+        return false;
+    }
 }

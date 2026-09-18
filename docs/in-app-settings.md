@@ -55,7 +55,7 @@ Avoid a general plugin registry or runtime constructor guessing for one menu
 entry and one initial switch.
 
 The [source research](research/2026-09-18-in-app-settings.md) records the Piko
-pattern and Spotify integration leads. No cvnfork source is imported.
+pattern and Spotify integration leads.
 
 ## Verification requirements
 
@@ -97,5 +97,11 @@ theme-only, and combined APKs build. Seven altered-input or invalid-option
 cases fail without output APKs. The published `dev.3` prerelease adds the
 settings menu. On the Pixel 8, the native row, Back navigation, immediate
 sharing toggle, restart persistence, playback, rotation, and enlarged text
-pass. Theme-only and combined settings controls still need signed-in runtime
-checks. See the verification record for the remaining review and test gaps.
+pass. Theme-only and combined settings controls also pass on the signed-in
+Pixel. The sharing preference survives a same-key update between profiles.
+The default sharing-only profile and its enabled preference were restored.
+See the verification record for the remaining review and test gaps.
+
+Development builds extend this screen with optional Home pins and server-file
+configuration. [Optional features](optional-features.md) describes their
+behavior and remaining runtime checks.

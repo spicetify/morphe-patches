@@ -2,6 +2,8 @@ package app.spicetify.extension.spotify.settings;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import app.spicetify.extension.spotify.home.HomePins;
+import app.spicetify.extension.spotify.localserver.ServerConfig;
 
 public final class PatchSettings {
     private static final String FILE = "spicetify_patch_settings";
@@ -12,6 +14,8 @@ public final class PatchSettings {
 
     public static void initialize(Context context) {
         preferences = context.getApplicationContext().getSharedPreferences(FILE, Context.MODE_PRIVATE);
+        if (InstalledPatches.homePins()) HomePins.initialize(context);
+        if (InstalledPatches.serverFiles()) ServerConfig.initialize(context);
     }
 
     public static boolean cleanSharingEnabled() {

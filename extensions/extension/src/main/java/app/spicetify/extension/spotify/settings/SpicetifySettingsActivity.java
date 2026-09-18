@@ -1,6 +1,7 @@
 package app.spicetify.extension.spotify.settings;
 
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.content.Intent;
 import android.content.res.ColorStateList;
 import android.graphics.Color;
@@ -10,9 +11,14 @@ import android.os.Bundle;
 import android.view.MenuItem;
 import android.view.ViewGroup;
 import android.widget.LinearLayout;
+import android.widget.Button;
 import android.widget.ScrollView;
 import android.widget.Switch;
 import android.widget.TextView;
+import android.widget.Toast;
+import app.spicetify.extension.spotify.home.HomePins;
+import java.util.ArrayList;
+import java.util.List;
 
 public final class SpicetifySettingsActivity extends Activity {
     public static void open(Activity activity) {
@@ -69,10 +75,65 @@ public final class SpicetifySettingsActivity extends Activity {
                     + "Change those options and repatch Spotify to use different colors.", false));
         }
 
-        if (!sharingInstalled && !themeInstalled) {
+        if (InstalledPatches.homePins()) {
+            content.addView(text("Home shortcuts", true));
+            content.addView(text("Choose which shortcuts appear first when Spotify includes them on Home. "
+                    + "Return to Home once to load the choices. Restart Spotify after changing pins.", false));
+            Button choose = new Button(this);
+            choose.setText("Choose pinned shortcuts");
+            choose.setOnClickListener(view -> chooseHomePins());
+            content.addView(choose);
+        }
+
+        if (InstalledPatches.serverFiles()) {
+            content.addView(new ServerFilesSettings(this));
+        }
+
+        if (!sharingInstalled && !themeInstalled && !InstalledPatches.homePins()
+                && !InstalledPatches.serverFiles()) {
             content.addView(text("No configurable Spicetify patches are installed.", false));
         }
         setContentView(scroll);
+    }
+
+    private void chooseHomePins() {
+        List<HomePins.Choice> choices = HomePins.choices();
+        if (choices.isEmpty()) {
+            new AlertDialog.Builder(this).setTitle("No Home shortcuts loaded")
+                    .setMessage("Return to Home and let its shortcuts load, then open this menu again.")
+                    .setPositiveButton("OK", null).show();
+            return;
+        }
+        String[] labels = new String[choices.size()];
+        boolean[] selected = new boolean[choices.size()];
+        for (int i = 0; i < choices.size(); i++) {
+            HomePins.Choice choice = choices.get(i);
+            boolean duplicate = false;
+            for (HomePins.Choice other : choices) {
+                if (!other.id.equals(choice.id) && other.label.equals(choice.label)) duplicate = true;
+            }
+            labels[i] = duplicate ? choice.label + "\n" + choice.id : choice.label;
+            selected[i] = choice.pinned;
+        }
+        AlertDialog picker = new AlertDialog.Builder(this).setTitle("Pinned Home shortcuts")
+                .setMultiChoiceItems(labels, selected, (dialog, index, checked) -> selected[index] = checked)
+                .setNegativeButton("Cancel", null)
+                .setPositiveButton("Save", null).create();
+        picker.setOnShowListener(ignored -> picker.getButton(AlertDialog.BUTTON_POSITIVE)
+                .setOnClickListener(button -> {
+                    List<String> ids = new ArrayList<>();
+                    for (int i = 0; i < choices.size(); i++) if (selected[i]) ids.add(choices.get(i).id);
+                    try {
+                        HomePins.setPinned(ids);
+                    } catch (IllegalArgumentException changedSelection) {
+                        Toast.makeText(this, changedSelection.getMessage(), Toast.LENGTH_LONG).show();
+                        return;
+                    }
+                    picker.dismiss();
+                    new AlertDialog.Builder(this).setMessage("Pins saved. Restart Spotify to refresh Home.")
+                            .setPositiveButton("OK", null).show();
+                }));
+        picker.show();
     }
 
     private TextView text(String value, boolean heading) {

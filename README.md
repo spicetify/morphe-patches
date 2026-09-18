@@ -19,6 +19,10 @@ experimental source.
 The first milestone contains two patches. Colors are optional because they
 change only selected Android resources, not every Spotify screen.
 
+Development builds also contain optional Home shortcut pinning and HTTPS
+WebDAV server files. These are not in `dev.3` and still need runtime testing.
+See [optional feature setup and limits](docs/optional-features.md).
+
 | Patch | Default | Behavior |
 | --- | --- | --- |
 | Clean sharing links | Enabled | Removes `si`, `pi`, and known `utm_*` parameters from `open.spotify.com` links. Preserves timestamps, context, other parameters, and fragments. |

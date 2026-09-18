@@ -33,5 +33,5 @@ URL builder. Its new Java helper removes named tracking parameters while
 preserving other query parameters and fragments, instead of truncating the
 query. These adaptations were made on September 17, 2026.
 
-No code from the binary-only candidates or the unresolved cvnfork source was
-imported. Spotify APKs and other proprietary assets are excluded.
+No code from binary-only candidates was imported. Spotify APKs and other
+proprietary assets are excluded.

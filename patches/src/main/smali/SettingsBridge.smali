@@ -65,7 +65,7 @@
     move-result-object v3
     sget-object v4, Lp/k2u;->c:Lp/k2u;
     const-string v5, "Spicetify"
-    const-string v6, "Sharing and appearance"
+    const-string v6, "Preferences for installed patches"
     invoke-direct/range {v0 .. v6}, Lp/osa0;-><init>(ILp/hka1;Ljava/util/List;Lp/v8u;Ljava/lang/String;Ljava/lang/String;)V
     new-instance v1, Lapp/spicetify/extension/spotify/settings/nativebridge/ModelFactory;
     invoke-direct {v1, v0}, Lapp/spicetify/extension/spotify/settings/nativebridge/ModelFactory;-><init>(Lp/osa0;)V

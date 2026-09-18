@@ -17,10 +17,13 @@ def altered_apk(source, target, kind):
     with zipfile.ZipFile(source) as original, zipfile.ZipFile(target, "w") as altered:
         for entry in original.infolist():
             data = original.read(entry)
-            if kind in ("sharing", "sharing-response", "settings") and entry.filename.endswith(".dex"):
+            if kind in ("sharing", "sharing-response", "settings", "home", "server") and entry.filename.endswith(".dex"):
                 old, new = {"sharing": (b"Invalid uri ", b"Invalid urj "),
                             "sharing-response": (b"fullUrl_", b"testUrl_"),
-                            "settings": (b"aboutPage", b"aboutPagg")}[kind]
+                            "settings": (b"aboutPage", b"aboutPagg"),
+                            "home": (b"Lp/joz0;", b"Lp/jpz0;"),
+                            "server": (b"Lcom/spotify/localfiles/mediastore/MediaStoreReader;",
+                                       b"Lcom/spotify/localfiles/mediastore/MediaStoreReades;")}[kind]
                 count = data.count(old)
                 if count:
                     data = bytearray(data.replace(old, new))
@@ -45,6 +48,7 @@ def main():
     parser.add_argument("--bundle", type=Path, required=True)
     parser.add_argument("--desktop", type=Path, required=True)
     parser.add_argument("--java", default="java")
+    parser.add_argument("--case", action="append", help="Run only this named case; repeat to select several")
     args = parser.parse_args()
     stock, bundle, desktop = (path.resolve(strict=True) for path in
                               (args.stock, args.bundle, args.desktop))
@@ -57,12 +61,22 @@ def main():
          "Spotify sharing response getter for fullUrl_ changed."),
         ("missing-theme-resource", "theme", "Theme colors", None,
          "Unsupported Spotify color resources: missing dark_base_background_base"),
+        ("changed-home-model", "home", "Pin shortcuts on Home", None,
+         "Spotify Home ABI changed:"),
+        ("changed-server-reader", "server", "Local files from a server", None,
+         "Spotify local-files ABI changed:"),
     ]
     for key, label in (("backgroundColor", "Primary background color"),
                        ("accentColor", "Accent color"),
                        ("pressedAccentColor", "Pressed accent color")):
         cases.append((f"invalid-{key}", None, "Theme colors", key,
                       f"{label} must be #RRGGBB or #AARRGGBB."))
+
+    if args.case:
+        unknown = set(args.case) - {case[0] for case in cases}
+        if unknown:
+            parser.error(f"Unknown refusal cases: {sorted(unknown)}")
+        cases = [case for case in cases if case[0] in args.case]
 
     results = []
     with tempfile.TemporaryDirectory(prefix="morphe-failures-") as temporary:

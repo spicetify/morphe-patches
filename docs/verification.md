@@ -349,9 +349,63 @@ before updating and remained off afterward, proving preference retention
 across a same-key settings update. The combined menu shows both the switch
 and the theme repatching instructions, with readable labels and spacing.
 
-Remaining settings checks include the signed-in theme-only screen and another
-notification/queue pass on `dev.3`. These gaps and the broader checklist below
-keep the source experimental.
+Manager also built and installed the theme-only profile. Its exported APK has
+SHA-256 `665daba026014fe5c9b829e4ebde101dff7a8d3b37eff54e9b3c7baa8c7180b2`
+and passes artifact checks with zero sharing hooks, the theme capability,
+ten color changes, and the canonical settings bridge. The signed-in settings
+screen shows only theme instructions, without a sharing switch. Back returns
+to Spotify. Library and its sorting dialog remain readable and usable.
+
+After these tests, ADB installed the previously verified, Manager-signed
+default APK as a data-preserving update. This restoration used ADB rather
+than repeating the already-tested Manager installation flow. Clean sharing
+was restored to enabled through Spotify's visible settings screen, and
+Manager's Expert mode was turned off. Playback remained paused.
+
+Another notification/queue pass on `dev.3` and the broader checklist below
+remain open.
+
+## Optional feature development checkpoint
+
+On September 18, the additional settings, Home pinning, and server-file source
+compiled and applied to the stock Spotify fixture in an isolated evaluation.
+Five characterization tests against that unchanged source reproduced
+cross-origin credential transmission, incorrect bytes after an ignored range
+request, colliding track identifiers, stale indexes after changing servers,
+and missing shortcut discovery on first use. Only fake credentials and
+loopback fixtures were used. Its APK was not installed on the Pixel.
+
+The port uses the existing private Spicetify settings screen. Home pinning
+copies the verified native list and identifies shortcuts by URI. Server files
+use an immutable configuration, constrained HTTPS URLs, validated byte ranges,
+bounded scans, and a private provider without disk audio caching. Both new
+patches are disabled by default. Android 7 keeps the other patches available;
+server streaming requires Android 8 or later.
+
+The final local suite passes 53 extension tests, 34 patch tests, 26 sharing
+verifier cases, Android lint, and bundle packaging. Independent review
+verified the eight Home snapshots and four local-file snapshots against stock
+DEX, then checked the four injected hooks and their public static targets.
+Review findings about excess pin selections, disabling with invalid draft
+fields, disappearing validation errors, and repeated HTTP headers were fixed
+and covered by regression tests.
+
+All four patches apply together. The final local bundle has SHA-256
+`4df88f5e62a958ae972fd5d00827f27cba3d93667846c6ddf453f65c062a521a`.
+The signed base-APK artifact has SHA-256
+`bfac0f27e3796ffd3abe9322091787eea07914b077c89138f3cd30df50ec608c`.
+Independent checks pass for the sharing hooks, exact settings bridge, four
+capabilities, private Activity/provider, unchanged permissions, signature,
+and 1,145 default color resources with ten expected changes. This base-only
+artifact is for inspection, not installation without its split resources.
+Both new altered-model cases exit with status 1, report the expected ABI
+failure, and leave no output APK.
+
+These optional features are not published. Their remaining release checks
+are the normal Manager installation flow, signed-in Home ordering and
+unpinning, Android HTTPS validation, metadata extraction, Local Files
+playback/seeking, disabling during reads, and configuration replacement.
+The default Pixel installation remains the published `dev.3` sharing profile.
 
 ## Runtime and release checklist
 

@@ -62,7 +62,7 @@ def manifest_blocks(aapt2, apk):
     return blocks
 
 
-def verify_manifest(aapt2, stock, patched):
+def verify_manifest(aapt2, stock, patched, server_files=False):
     before, after = (manifest_blocks(aapt2, apk) for apk in (stock, patched))
     activity_name = "app.spicetify.extension.spotify.settings.SpicetifySettingsActivity"
     activities = [body for kind, body in after if kind == "activity"
@@ -74,6 +74,19 @@ def verify_manifest(aapt2, stock, patched):
         raise AssertionError("Spicetify settings activity must be non-exported")
     if "E: intent-filter" in activity:
         raise AssertionError("Spicetify settings activity must have no public intent filter")
+    providers = [body for kind, body in after if kind == "provider"
+                 and '="app.spicetify.extension.spotify.localserver.ServerFileProvider"' in body]
+    if len(providers) != int(server_files):
+        raise AssertionError("Server provider does not match the selected patches")
+    if providers:
+        provider = providers[0]
+        for attribute in ("exported", "grantUriPermissions"):
+            if not re.search(rf":{attribute}\(0x[0-9a-f]+\)=false", provider):
+                raise AssertionError(f"Server provider must disable {attribute}")
+        if '="com.spotify.music.spicetify.localserver"' not in provider:
+            raise AssertionError("Server provider authority changed")
+        if "E: grant-uri-permission" in provider or "E: intent-filter" in provider:
+            raise AssertionError("Server provider must not expose URI grants or intent filters")
     def permissions(blocks):
         return sorted(re.sub(r" \(line=\d+\)", "", body)
                       for kind, body in blocks if kind.startswith("uses-permission"))
@@ -91,6 +104,8 @@ def main():
     parser.add_argument("--aapt2", required=True)
     parser.add_argument("--apksigner", required=True)
     parser.add_argument("--sharing", action="store_true")
+    parser.add_argument("--home-pins", action="store_true")
+    parser.add_argument("--server-files", action="store_true")
     parser.add_argument("--theme", nargs=3, metavar=("BACKGROUND", "ACCENT", "PRESSED"))
     args = parser.parse_args()
     before = colors(args.aapt2, args.stock)
@@ -126,15 +141,16 @@ def main():
         args.java, "-Xmx2g", "-cp", str(args.desktop),
         str(Path(__file__).with_name("VerifySharingDex.java")),
         str(args.patched), "1" if args.sharing else "0",
-        "1" if args.sharing or args.theme else "0",
+        "1" if args.sharing or args.theme or args.home_pins or args.server_files else "0",
     ], check=True)
-    if args.sharing or args.theme:
-        verify_manifest(args.aapt2, args.stock, args.patched)
+    if args.sharing or args.theme or args.home_pins or args.server_files:
+        verify_manifest(args.aapt2, args.stock, args.patched, args.server_files)
         subprocess.run([
             args.java, "-Xmx2g", "-cp", str(args.desktop),
             str(Path(__file__).with_name("VerifySettingsDex.java")),
             str(args.patched), "1" if args.sharing else "0", "1" if args.theme else "0",
             str(args.bundle),
+            "1" if args.home_pins else "0", "1" if args.server_files else "0",
         ], check=True)
     subprocess.run([args.apksigner, "verify", str(args.patched)], check=True)
     print(json.dumps({
@@ -142,6 +158,7 @@ def main():
         "bundleSha256": digest(args.bundle),
         "defaultColorsChecked": len(before), "themeColorsChanged": len(expected),
         "sharing": args.sharing, "signatureVerified": True,
+        "homePins": args.home_pins, "serverFiles": args.server_files,
     }, indent=2))
 
 

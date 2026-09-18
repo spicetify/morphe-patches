@@ -122,8 +122,8 @@ class VerifySettingsDex {
 
     public static void main(String[] args) throws Exception {
         require(
-                args.length == 4,
-                "Usage: VerifySettingsDex.java APK SHARING_ENABLED THEME_ENABLED BUNDLE");
+                args.length == 4 || args.length == 6,
+                "Usage: VerifySettingsDex.java APK SHARING_ENABLED THEME_ENABLED BUNDLE [HOME_ENABLED SERVER_ENABLED]");
         require(
                 Set.of("0", "1").contains(args[1]) && Set.of("0", "1").contains(args[2]),
                 "Expected boolean flags 0 or 1");
@@ -137,6 +137,12 @@ class VerifySettingsDex {
             }
         }
         verify(args[1].equals("1"), args[2].equals("1"));
+        if (args.length == 6) {
+            require(Set.of("0", "1").contains(args[4]) && Set.of("0", "1").contains(args[5]),
+                    "Expected optional capability flags 0 or 1");
+            verifyCapability("homePins", args[4].equals("1"));
+            verifyCapability("serverFiles", args[5].equals("1"));
+        }
         System.out.println(
                 "Settings DEX verified: one startup hook, one native settings row hook,"
                         + " capabilities, analytics and four bridge classes");

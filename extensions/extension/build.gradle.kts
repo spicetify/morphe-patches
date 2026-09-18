@@ -4,6 +4,7 @@ extension {
 
 android {
     namespace = "app.spicetify.extension.spotify"
+    defaultConfig.minSdk = 24
     testOptions.unitTests.isIncludeAndroidResources = true
 }
 
