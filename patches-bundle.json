@@ -1,7 +1,7 @@
 {
-  "created_at": "2026-09-18T10:06:16",
-  "description": "## [1.0.0-dev.2](https://github.com/spicetify/morphe-patches/compare/v1.0.0-dev.1...v1.0.0-dev.2) (2026-09-18)\n\n### 🐛 Bug Fixes\n\n* clean server-generated Spotify sharing links ([c01bddb](https://github.com/spicetify/morphe-patches/commit/c01bddb1c07c670c94922961ee955c7ecc0d064f))",
-  "download_url": "https://github.com/spicetify/morphe-patches/releases/download/v1.0.0-dev.2/patches-1.0.0-dev.2.mpp",
+  "created_at": "2026-09-18T11:27:39",
+  "description": "## [1.0.0-dev.3](https://github.com/spicetify/morphe-patches/compare/v1.0.0-dev.2...v1.0.0-dev.3) (2026-09-18)\n\n### 🐛 Bug Fixes\n\n* include native settings generation in source packaging ([740d7a9](https://github.com/spicetify/morphe-patches/commit/740d7a9a3019c6d892e1fee6b9cc876877cd6836))\n\n### ✨ New Features\n\n* add in-app Spotify patch settings ([7822e51](https://github.com/spicetify/morphe-patches/commit/7822e51a809ee9de226fca12e65433461f122c96))",
+  "download_url": "https://github.com/spicetify/morphe-patches/releases/download/v1.0.0-dev.3/patches-1.0.0-dev.3.mpp",
   "signature_download_url": "",
-  "version": "1.0.0-dev.2"
+  "version": "1.0.0-dev.3"
 }

@@ -1,3 +1,13 @@
+## [1.0.0-dev.3](https://github.com/spicetify/morphe-patches/compare/v1.0.0-dev.2...v1.0.0-dev.3) (2026-09-18)
+
+### 🐛 Bug Fixes
+
+* include native settings generation in source packaging ([740d7a9](https://github.com/spicetify/morphe-patches/commit/740d7a9a3019c6d892e1fee6b9cc876877cd6836))
+
+### ✨ New Features
+
+* add in-app Spotify patch settings ([7822e51](https://github.com/spicetify/morphe-patches/commit/7822e51a809ee9de226fca12e65433461f122c96))
+
 ## [1.0.0-dev.2](https://github.com/spicetify/morphe-patches/compare/v1.0.0-dev.1...v1.0.0-dev.2) (2026-09-18)
 
 ### 🐛 Bug Fixes
