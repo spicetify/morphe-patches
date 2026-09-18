@@ -6,6 +6,7 @@ import com.android.tools.smali.dexlib2.Opcodes;
 import com.android.tools.smali.dexlib2.Opcode;
 import com.android.tools.smali.dexlib2.AccessFlags;
 import com.android.tools.smali.dexlib2.iface.instruction.Instruction;
+import com.android.tools.smali.dexlib2.iface.instruction.OffsetInstruction;
 import com.android.tools.smali.dexlib2.iface.instruction.OneRegisterInstruction;
 import com.android.tools.smali.dexlib2.iface.instruction.TwoRegisterInstruction;
 import com.android.tools.smali.dexlib2.iface.instruction.FiveRegisterInstruction;
@@ -19,13 +20,18 @@ import com.android.tools.smali.dexlib2.iface.ClassDef;
 /** Run with Morphe Desktop's all.jar on the classpath and Java 21. */
 class VerifySharingDex {
     private static final String HELPER = "Lapp/spicetify/extension/spotify/privacy/SharingLinks;";
+    private static final String SETTINGS = "Lapp/spicetify/extension/spotify/settings/PatchSettings;";
     private static final String RESPONSE = "Lcom/spotify/share/linkgeneration/api/proto/GenerateUrlResponse;";
     private static final String STRING = "Ljava/lang/String;";
 
     public static void main(String[] args) throws Exception {
-        if (args.length != 2) throw new IllegalArgumentException("Usage: VerifySharingDex.java APK EXPECTED_CALLS");
-        int expected = Integer.parseInt(args[1]);
+        if (args.length != 3) throw new IllegalArgumentException(
+                "Usage: VerifySharingDex.java APK SHARING_ENABLED SETTINGS_ENABLED");
+        int expected = flag(args[1]);
+        int expectedHelpers = flag(args[2]);
+        if (expected > expectedHelpers) throw new IllegalArgumentException("Sharing requires settings");
         int helpers = 0;
+        int wrappers = 0;
         int localCalls = 0;
         int resultCalls = 0;
         var dex = DexFileFactory.loadDexContainer(new File(args[0]), Opcodes.getDefault());
@@ -45,6 +51,10 @@ class VerifySharingDex {
                     }
                     helpers++;
                 }
+                if (cls.getType().equals(HELPER) && method.getName().equals("onShareUrl")) {
+                    verifyWrapper(cls, method);
+                    wrappers++;
+                }
                 if (method.getImplementation() == null) continue;
                 var instructions = new ArrayList<Instruction>();
                 method.getImplementation().getInstructions().forEach(instructions::add);
@@ -53,7 +63,11 @@ class VerifySharingDex {
                     if (!(instruction instanceof ReferenceInstruction ref)
                             || !(ref.getReference() instanceof MethodReference target)
                             || !target.getDefiningClass().equals(HELPER)
-                            || !target.getName().equals("sanitizeUrl")) continue;
+                            || !(target.getName().equals("sanitizeUrl") || target.getName().equals("onShareUrl"))) continue;
+                    if (cls.getType().equals(HELPER) && method.getName().equals("onShareUrl")) continue;
+                    if (!target.getName().equals("onShareUrl")) {
+                        throw new AssertionError("Native sharing hook bypasses the saved preference");
+                    }
                     if (!target.getParameterTypes().equals(java.util.List.of("Ljava/lang/String;"))
                             || !target.getReturnType().equals("Ljava/lang/String;")) {
                         throw new AssertionError("Sanitizer call descriptor does not match the helper");
@@ -85,12 +99,52 @@ class VerifySharingDex {
                 }
             }
         }
-        if (localCalls != expected || resultCalls != 2 * expected || helpers != expected) {
-            throw new AssertionError("Expected " + expected + " helper/local hook and " + (2 * expected)
-                    + " result hooks; found " + helpers + "/" + localCalls + "/" + resultCalls);
+        if (localCalls != expected || resultCalls != 2 * expected || helpers != expectedHelpers || wrappers != expectedHelpers) {
+            throw new AssertionError("Expected " + expectedHelpers + " sanitizer/wrapper, " + expected + " local hook and " + (2 * expected)
+                    + " result hooks; found " + helpers + "/" + wrappers + "/" + localCalls + "/" + resultCalls);
         }
         System.out.println("Sharing DEX verified: " + localCalls + " local hook(s), "
-                + resultCalls + " result hook(s), " + helpers + " helper(s)");
+                + resultCalls + " result hook(s), " + helpers + " sanitizer(s), " + wrappers + " preference wrapper(s)");
+    }
+
+    private static int flag(String value) {
+        if (!value.equals("0") && !value.equals("1")) throw new IllegalArgumentException("Flags must be 0 or 1");
+        return Integer.parseInt(value);
+    }
+
+    private static void verifyWrapper(ClassDef cls, Method method) {
+        var code = instructions(method);
+        if (!AccessFlags.PUBLIC.isSet(cls.getAccessFlags())
+                || !AccessFlags.PUBLIC.isSet(method.getAccessFlags())
+                || !AccessFlags.STATIC.isSet(method.getAccessFlags())
+                || !method.getParameterTypes().equals(List.of(STRING)) || !method.getReturnType().equals(STRING)
+                || method.getImplementation() == null || method.getImplementation().getRegisterCount() != 2
+                || !method.getImplementation().getTryBlocks().isEmpty() || code.size() != 6
+                || !isStaticCall(code.get(0), SETTINGS, "cleanSharingEnabled", List.of(), "Z", 0)
+                || code.get(1).getOpcode() != Opcode.MOVE_RESULT
+                || ((OneRegisterInstruction) code.get(1)).getRegisterA() != 0
+                || code.get(2).getOpcode() != Opcode.IF_EQZ
+                || ((OneRegisterInstruction) code.get(2)).getRegisterA() != 0
+                || !(code.get(2) instanceof OffsetInstruction branch)
+                || branch.getCodeOffset() != code.get(2).getCodeUnits() + code.get(3).getCodeUnits() + code.get(4).getCodeUnits()
+                || !isStaticCall(code.get(3), HELPER, "sanitizeUrl", List.of(STRING), STRING, 1)
+                || !(code.get(3) instanceof FiveRegisterInstruction call) || call.getRegisterC() != 1
+                || code.get(4).getOpcode() != Opcode.MOVE_RESULT_OBJECT
+                || ((OneRegisterInstruction) code.get(4)).getRegisterA() != 1
+                || code.get(5).getOpcode() != Opcode.RETURN_OBJECT
+                || ((OneRegisterInstruction) code.get(5)).getRegisterA() != 1) {
+            throw new AssertionError("Sharing wrapper must read the preference and return the original URL when disabled");
+        }
+    }
+
+    private static boolean isStaticCall(Instruction instruction, String owner, String name,
+                                        List<String> parameters, String result, int registers) {
+        return instruction.getOpcode() == Opcode.INVOKE_STATIC
+                && instruction instanceof FiveRegisterInstruction call && call.getRegisterCount() == registers
+                && instruction instanceof ReferenceInstruction reference
+                && reference.getReference() instanceof MethodReference target
+                && target.getDefiningClass().equals(owner) && target.getName().equals(name)
+                && target.getParameterTypes().equals(parameters) && target.getReturnType().equals(result);
     }
 
     private static MethodReference findResultConstructor(List<ClassDef> classes) {
@@ -187,7 +241,7 @@ class VerifySharingDex {
                     || call.getRegisterCount() != 1 || call.getStartRegister() != parameter
                     || !(code.get(index) instanceof ReferenceInstruction reference)
                     || !(reference.getReference() instanceof MethodReference target)
-                    || !target.getDefiningClass().equals(HELPER) || !target.getName().equals("sanitizeUrl")
+                    || !target.getDefiningClass().equals(HELPER) || !target.getName().equals("onShareUrl")
                     || !target.getParameterTypes().equals(java.util.List.of(string))
                     || !target.getReturnType().equals(string)
                     || code.get(index + 1).getOpcode() != Opcode.MOVE_RESULT_OBJECT

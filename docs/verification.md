@@ -224,6 +224,45 @@ pointed to the correct bundle. Commit `1caf103` removes validation-build bundles
 before release version selection. Workflow run `35333603978` passed, but the
 corrected upload behavior still needs observation on the next versioned release.
 
+## Local settings implementation
+
+The local settings build adds a native **Spicetify** row before **Log out**,
+a private Activity, persistent clean-sharing preferences, and installed-patch
+capability flags. The theme-only profile bundles the shared extension but has
+zero sharing hooks. Older evidence above describes the release tested at that
+time, including the previous helper-absence check.
+
+Build, unit tests, extension lint, and all three patch profiles pass. The
+sharing verifier checks one local and two result hooks into `onShareUrl`, plus
+the branch that preserves the original URL when cleanup is disabled. Its 26
+regression cases pass. Four preference tests and two native snapshot tests
+pass. Independent settings DEX checks verify application initialization, menu
+insertion, capability constants, the reserved analytics mapping, bridge
+references, and navigation signatures. Fifteen mutated artifact cases are
+rejected. Manifest inspection confirms one non-exported settings Activity,
+no intent filter, and unchanged app permissions.
+
+Seven actual-APK refusal cases pass with no output file. Altering the root
+settings marker fails the `xlt` snapshot. Altering the sharing marker fails
+the earlier `ion` snapshot because this obfuscated class also contains the
+marker. Changed server response fields and all existing theme refusal cases
+still report their expected failures.
+
+The README source button uses `github=spicetify/morphe-patches/tree/dev`.
+Official website code preserves the branch, and Manager 1.31.1 converts it to
+the raw dev metadata URL and enables prereleases. Isolated execution of the
+website script confirms the generated intent. A deployed browser-to-Manager
+check remains pending.
+
+Code review: skipped (ce-code-review unavailable). The review workflow hit
+the session's agent-thread limit before its required reviewer and report
+steps could start. Two simplification reviewers and a manual source pass ran;
+the third simplification lens ran inline. The dedicated review did not complete.
+The source pass preserved the strict ABI guards and native register contracts.
+
+Device testing is in progress. These checks do not establish that the native
+menu renders or that the toggle affects authenticated sharing on Android.
+
 ## Runtime and release checklist
 
 Use the normal Manager entry point before claiming release readiness.

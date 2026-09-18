@@ -3,6 +3,7 @@ package app.spicetify.patches.spotify.theme
 import app.morphe.patcher.patch.resourcePatch
 import app.morphe.patcher.patch.stringOption
 import app.spicetify.patches.spotify.spotifyCompatibility
+import app.spicetify.patches.spotify.settings.themeSettingsPatch
 
 @Suppress("unused")
 val themePatch = resourcePatch(
@@ -12,6 +13,7 @@ val themePatch = resourcePatch(
     default = false,
 ) {
     compatibleWith(spotifyCompatibility)
+    dependsOn(themeSettingsPatch)
 
     val backgroundColor by stringOption(
         key = "backgroundColor",

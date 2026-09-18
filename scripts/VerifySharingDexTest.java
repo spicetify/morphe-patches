@@ -14,12 +14,16 @@ import com.android.tools.smali.dexlib2.writer.pool.DexPool;
 class VerifySharingDexTest {
     private static final String HELPER = "Lapp/spicetify/extension/spotify/privacy/SharingLinks;";
     private static final String STRING = "Ljava/lang/String;";
+    private static final String SETTINGS = "Lapp/spicetify/extension/spotify/settings/PatchSettings;";
     private static final String RESPONSE = "Lcom/spotify/share/linkgeneration/api/proto/GenerateUrlResponse;";
     private static final String RESULT = "Ltest/Result;";
 
     private enum ResultFixture {
         VALID, MISSING_HOOKS, WRONG_URL_ARGUMENT, CHANGED_ID_STORE, DECOY_HOOKS,
-        CHANGED_RESPONSE_FIELD, SWAPPED_RESPONSE_ARGUMENTS, DUPLICATE_CONSTRUCTION
+        CHANGED_RESPONSE_FIELD, SWAPPED_RESPONSE_ARGUMENTS, DUPLICATE_CONSTRUCTION,
+        MISSING_WRAPPER, WRONG_PREFERENCE, INVERTED_BRANCH, WRONG_BRANCH_TARGET,
+        WRONG_SANITIZER_ARGUMENT, WRONG_WRAPPER_RETURN, LEGACY_NATIVE_HOOK,
+        WRONG_WRAPPER_FLAGS, WRONG_WRAPPER_DESCRIPTOR
     }
 
     public static void main(String[] args) throws Exception {
@@ -31,7 +35,12 @@ class VerifySharingDexTest {
         for (var fixture : ResultFixture.values()) {
             if (fixture != ResultFixture.VALID) check(STRING, STRING, 9, false, fixture);
         }
-        System.out.println("Verifier regression cases passed: 12");
+        checkProfile(false, true, true, true);
+        checkProfile(false, false, false, true);
+        checkProfile(true, false, false, false);
+        checkProfile(false, false, true, false);
+        checkProfile(false, true, false, false);
+        System.out.println("Verifier regression cases passed: " + (4 + ResultFixture.values().length + 5));
     }
 
     private static void check(String parameter, String result, int flags, boolean valid) throws Exception {
@@ -51,12 +60,12 @@ class VerifySharingDexTest {
                         new ImmutableMethodReference("Landroid/net/Uri;", "toString", List.of(), STRING)),
                 new ImmutableInstruction11x(Opcode.MOVE_RESULT_OBJECT, 0),
                 new ImmutableInstruction3rc(Opcode.INVOKE_STATIC_RANGE, 0, 1,
-                        new ImmutableMethodReference(HELPER, "sanitizeUrl", List.of(parameter), result)),
+                        new ImmutableMethodReference(HELPER, fixture == ResultFixture.LEGACY_NATIVE_HOOK ? "sanitizeUrl" : "onShareUrl", List.of(parameter), result)),
                 new ImmutableInstruction11x(Opcode.MOVE_RESULT_OBJECT, 0),
                 new ImmutableInstruction11x(Opcode.RETURN_OBJECT, 0)), List.of(), List.of()));
         var classes = new java.util.ArrayList<ImmutableClassDef>(List.of(
                 new ImmutableClassDef(HELPER, 1, "Ljava/lang/Object;", List.of(), null,
-                        Set.of(), List.of(), List.of(helper)),
+                        Set.of(), List.of(), fixture == ResultFixture.MISSING_WRAPPER ? List.of(helper) : List.of(helper, wrapper(fixture))),
                 new ImmutableClassDef("Ltest/Caller;", 1, "Ljava/lang/Object;", List.of(), null,
                         Set.of(), List.of(), List.of(caller))));
         classes.add(resultClass(RESULT, fixture != ResultFixture.MISSING_HOOKS && fixture != ResultFixture.DECOY_HOOKS,
@@ -101,7 +110,7 @@ class VerifySharingDexTest {
             DexPool.writeTo(file.toString(), dex);
             boolean accepted = true;
             try {
-                VerifySharingDex.main(new String[]{file.toString(), "1"});
+                VerifySharingDex.main(new String[]{file.toString(), "1", "1"});
             } catch (AssertionError rejected) {
                 accepted = false;
             }
@@ -113,13 +122,56 @@ class VerifySharingDexTest {
         }
     }
 
+    private static ImmutableMethod wrapper(ResultFixture fixture) {
+        var code = List.<Instruction>of(
+                new ImmutableInstruction35c(Opcode.INVOKE_STATIC, 0, 0, 0, 0, 0, 0,
+                        new ImmutableMethodReference(SETTINGS,
+                                fixture == ResultFixture.WRONG_PREFERENCE ? "otherSetting" : "cleanSharingEnabled", List.of(), "Z")),
+                new ImmutableInstruction11x(Opcode.MOVE_RESULT, 0),
+                new ImmutableInstruction21t(fixture == ResultFixture.INVERTED_BRANCH ? Opcode.IF_NEZ : Opcode.IF_EQZ,
+                        0, fixture == ResultFixture.WRONG_BRANCH_TARGET ? 2 : 6),
+                new ImmutableInstruction35c(Opcode.INVOKE_STATIC, 1,
+                        fixture == ResultFixture.WRONG_SANITIZER_ARGUMENT ? 0 : 1, 0, 0, 0, 0,
+                        new ImmutableMethodReference(HELPER, "sanitizeUrl", List.of(STRING), STRING)),
+                new ImmutableInstruction11x(Opcode.MOVE_RESULT_OBJECT, 1),
+                new ImmutableInstruction11x(Opcode.RETURN_OBJECT,
+                        fixture == ResultFixture.WRONG_WRAPPER_RETURN ? 0 : 1));
+        return new ImmutableMethod(HELPER, "onShareUrl",
+                List.of(new ImmutableMethodParameter(
+                        fixture == ResultFixture.WRONG_WRAPPER_DESCRIPTOR ? "Ljava/lang/Object;" : STRING, Set.of(), null)),
+                STRING, fixture == ResultFixture.WRONG_WRAPPER_FLAGS ? 1 : 9,
+                Set.of(), Set.of(), new ImmutableMethodImplementation(2, code, List.of(), List.of()));
+    }
+
+    private static void checkProfile(boolean nativeHooks, boolean helpers, boolean settings, boolean valid) throws Exception {
+        // A theme-only extension contains the helpers but must not hook Spotify sharing.
+        var sanitizer = new ImmutableMethod(HELPER, "sanitizeUrl",
+                List.of(new ImmutableMethodParameter(STRING, Set.of(), null)), STRING, 9, Set.of(), Set.of(),
+                new ImmutableMethodImplementation(1, List.of(new ImmutableInstruction11x(Opcode.RETURN_OBJECT, 0)), List.of(), List.of()));
+        var classes = helpers ? List.of(new ImmutableClassDef(HELPER, 1, "Ljava/lang/Object;", List.of(), null,
+                Set.of(), List.of(), List.of(sanitizer, wrapper(ResultFixture.VALID)))) : List.<ImmutableClassDef>of();
+        var file = Files.createTempFile("sharing-profile-", ".dex");
+        try {
+            DexPool.writeTo(file.toString(), new ImmutableDexFile(Opcodes.getDefault(), classes));
+            boolean accepted = true;
+            try {
+                VerifySharingDex.main(new String[]{file.toString(), nativeHooks ? "1" : "0", settings ? "1" : "0"});
+            } catch (AssertionError | IllegalArgumentException rejected) {
+                accepted = false;
+            }
+            if (accepted != valid) throw new AssertionError("Unexpected profile acceptance=" + accepted);
+        } finally {
+            Files.deleteIfExists(file);
+        }
+    }
+
     private static ImmutableClassDef resultClass(String owner, boolean includeHooks, int fullUrlArgument, int shareIdStore) {
         var code = new java.util.ArrayList<Instruction>();
         code.add(new ImmutableInstruction35c(Opcode.INVOKE_DIRECT, 1, 0, 0, 0, 0, 0,
                 new ImmutableMethodReference("Ljava/lang/Object;", "<init>", List.of(), "V")));
         if (includeHooks) for (int argument : new int[]{1, fullUrlArgument}) {
             code.add(new ImmutableInstruction3rc(Opcode.INVOKE_STATIC_RANGE, argument, 1,
-                    new ImmutableMethodReference(HELPER, "sanitizeUrl", List.of(STRING), STRING)));
+                    new ImmutableMethodReference(HELPER, "onShareUrl", List.of(STRING), STRING)));
             code.add(new ImmutableInstruction11x(Opcode.MOVE_RESULT_OBJECT, argument));
         }
         for (int argument = 1; argument <= 4; argument++) {

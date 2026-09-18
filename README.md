@@ -9,6 +9,11 @@ This repository publishes patch source and bundles, not Spotify APKs.
 > The initial target is Spotify 9.1.80.2221, ARM64. Runtime compatibility is
 > still being verified. See the [verification record](docs/verification.md).
 
+[**➕ Add Spicetify to Morphe**](https://morphe.software/add-source?github=spicetify/morphe-patches/tree/dev)
+
+Open this link on Android with Morphe Manager installed to add the
+experimental source.
+
 ## Patches
 
 The first milestone contains two patches. Colors are optional because they
@@ -42,10 +47,11 @@ change only selected Android resources, not every Spotify screen.
 
 ## Try the experimental source
 
-The [first prerelease](https://github.com/spicetify/morphe-patches/releases/tag/v1.0.0-dev.1)
-is available for testing. Source download, patching, and installation work in
-Morphe Manager 1.31.1 on the test emulator. Playback and real sharing still
-need verification; there is no verified stable release.
+The [experimental releases](https://github.com/spicetify/morphe-patches/releases)
+are available for testing. Version `1.0.0-dev.2` was patched and installed
+through Morphe Manager 1.31.1 on a Pixel 8. Login, playback, and clean album,
+track, and playlist sharing links were verified. Other checks remain open in
+the [verification record](docs/verification.md). There is no stable release.
 
 Use a spare Android device or emulator for the initial tests. A patched APK
 uses a different signing certificate from stock Spotify. Installing it with
@@ -53,7 +59,9 @@ the same package name requires removing stock Spotify first, which removes
 its local app data and downloads. Keep Manager's signing key for future
 updates; a different key requires another uninstall.
 
-To add the source and patch Spotify in Manager:
+Use the **Add Spicetify to Morphe** link above, then confirm the source in
+Manager. If you already added this repository manually, keep that source
+instead of adding it again. To add it manually and patch Spotify:
 
 1. Open **Sources**, select **Add**, and choose **Remote**.
 2. Paste the following source URL, then select **Add**.

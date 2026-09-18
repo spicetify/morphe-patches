@@ -42,6 +42,45 @@ def xml_color(aapt2, apk, value):
     return re.sub(r" \(line=\d+\)", "", output)
 
 
+def manifest_blocks(aapt2, apk):
+    output = subprocess.check_output([
+        aapt2, "dump", "xmltree", str(apk), "--file", "AndroidManifest.xml",
+    ], text=True)
+    lines = output.splitlines()
+    blocks = []
+    for index, line in enumerate(lines):
+        match = re.match(r"( *)E: ([\w-]+) ", line)
+        if not match:
+            continue
+        end = index + 1
+        while end < len(lines):
+            candidate = lines[end]
+            if candidate.strip() and len(candidate) - len(candidate.lstrip()) <= len(match[1]):
+                break
+            end += 1
+        blocks.append((match[2], "\n".join(lines[index:end])))
+    return blocks
+
+
+def verify_manifest(aapt2, stock, patched):
+    before, after = (manifest_blocks(aapt2, apk) for apk in (stock, patched))
+    activity_name = "app.spicetify.extension.spotify.settings.SpicetifySettingsActivity"
+    activities = [body for kind, body in after if kind == "activity"
+                  and f'="{activity_name}"' in body]
+    if len(activities) != 1:
+        raise AssertionError("Expected exactly one Spicetify settings activity")
+    activity = activities[0]
+    if not re.search(r":exported\(0x[0-9a-f]+\)=false", activity):
+        raise AssertionError("Spicetify settings activity must be non-exported")
+    if "E: intent-filter" in activity:
+        raise AssertionError("Spicetify settings activity must have no public intent filter")
+    def permissions(blocks):
+        return sorted(re.sub(r" \(line=\d+\)", "", body)
+                      for kind, body in blocks if kind.startswith("uses-permission"))
+    if permissions(before) != permissions(after):
+        raise AssertionError("Settings patch changed app permissions")
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--stock", type=Path, required=True, help="Stock base APK")
@@ -86,7 +125,15 @@ def main():
         args.java, "-Xmx2g", "-cp", str(args.desktop),
         str(Path(__file__).with_name("VerifySharingDex.java")),
         str(args.patched), "1" if args.sharing else "0",
+        "1" if args.sharing or args.theme else "0",
     ], check=True)
+    if args.sharing or args.theme:
+        verify_manifest(args.aapt2, args.stock, args.patched)
+        subprocess.run([
+            args.java, "-Xmx2g", "-cp", str(args.desktop),
+            str(Path(__file__).with_name("VerifySettingsDex.java")),
+            str(args.patched), "1" if args.sharing else "0", "1" if args.theme else "0",
+        ], check=True)
     subprocess.run([args.apksigner, "verify", str(args.patched)], check=True)
     print(json.dumps({
         "stockSha256": digest(args.stock), "patchedSha256": digest(args.patched),

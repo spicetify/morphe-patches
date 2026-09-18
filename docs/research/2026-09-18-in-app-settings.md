@@ -134,6 +134,26 @@ and the repository's existing
    features need them, without importing Piko's unrelated patch registry,
    download UI, developer options, or process-restart service.
 
+## Add-source link
+
+Piko's README uses a bold link to the official Morphe add-source page. For
+this repository the link must include the `dev` branch:
+
+```text
+https://morphe.software/add-source?github=spicetify/morphe-patches/tree/dev
+```
+
+The [website parser][source-website] preserves the GitHub value in its Android
+intent. Manager 1.31.1 [normalizes the GitHub branch URL][source-normalize]
+to the raw `dev/patches-bundle.json` URL and [enables prereleases][source-dev]
+for an explicit dev branch. A plain repository value selects main, whose
+metadata is an empty placeholder in the current prerelease-only setup.
+
+An isolated execution of the official website script generated the expected
+intent. A live link test must reach Manager's source confirmation and cancel
+when the source is already installed. `/dev/` and `/refs/heads/dev/` are
+semantically equivalent URLs but can be stored as separate sources.
+
 ## Required evidence
 
 The existing [verification record](../verification.md) remains the release
@@ -178,3 +198,7 @@ authority. Add separate evidence for the following settings behavior.
 [spotify-storage]: https://github.com/cvnfork/morphe-spotify-patches/blob/289d59e2bdae0fa6f16ffa0e2769351be46a94e8/extensions/extension/src/main/java/app/noam/extension/spotify/localserver/ServerConfig.java
 [local-sharing]: ../../patches/src/main/kotlin/app/spicetify/patches/spotify/privacy/SharingLinksPatch.kt
 [local-theme]: ../../patches/src/main/kotlin/app/spicetify/patches/spotify/theme/ThemePatch.kt
+
+[source-website]: https://github.com/MorpheApp/morphe-website/blob/d53ba5c1bbfe7e8cc02b397f0bddb9899f0da909/public/js/add-source.js
+[source-normalize]: https://github.com/MorpheApp/morphe-manager/blob/3891e6fb2dddfbea0e58e49bd9546b4b5a38d175/app/src/main/java/app/morphe/manager/domain/repository/PatchBundleRepository.kt#L1350
+[source-dev]: https://github.com/MorpheApp/morphe-manager/blob/3891e6fb2dddfbea0e58e49bd9546b4b5a38d175/app/src/main/java/app/morphe/manager/domain/repository/PatchBundleRepository.kt#L1256

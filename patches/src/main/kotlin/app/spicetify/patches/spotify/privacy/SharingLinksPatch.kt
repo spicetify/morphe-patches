@@ -5,6 +5,8 @@ import app.morphe.patcher.extensions.InstructionExtensions.addInstructions
 import app.morphe.patcher.patch.PatchException
 import app.morphe.patcher.patch.bytecodePatch
 import app.spicetify.patches.spotify.spotifyCompatibility
+import app.spicetify.patches.spotify.settings.settingsPatch
+import app.spicetify.patches.spotify.settings.enableSetting
 import com.android.tools.smali.dexlib2.Opcode
 import com.android.tools.smali.dexlib2.iface.instruction.OneRegisterInstruction
 import com.android.tools.smali.dexlib2.iface.instruction.ReferenceInstruction
@@ -27,9 +29,10 @@ val sharingLinksPatch = bytecodePatch(
     default = true,
 ) {
     compatibleWith(spotifyCompatibility)
-    extendWith("extensions/spotify.mpe")
+    dependsOn(settingsPatch)
 
     execute {
+        enableSetting("cleanSharing")
         val classes = mutableListOf<ClassDef>()
         classDefForEach { classes += it }
         val resultConstructor = findShareResultConstructor(classes)
@@ -55,16 +58,16 @@ val sharingLinksPatch = bytecodePatch(
             .addInstructions(
                 1,
                 """
-                    invoke-static/range { p1 .. p1 }, Lapp/spicetify/extension/spotify/privacy/SharingLinks;->sanitizeUrl(Ljava/lang/String;)Ljava/lang/String;
+                    invoke-static/range { p1 .. p1 }, Lapp/spicetify/extension/spotify/privacy/SharingLinks;->onShareUrl(Ljava/lang/String;)Ljava/lang/String;
                     move-result-object p1
-                    invoke-static/range { p4 .. p4 }, Lapp/spicetify/extension/spotify/privacy/SharingLinks;->sanitizeUrl(Ljava/lang/String;)Ljava/lang/String;
+                    invoke-static/range { p4 .. p4 }, Lapp/spicetify/extension/spotify/privacy/SharingLinks;->onShareUrl(Ljava/lang/String;)Ljava/lang/String;
                     move-result-object p4
                 """.trimIndent(),
             )
         method.addInstructions(
             uriConversionIndex + 2,
             """
-                invoke-static/range { v$register .. v$register }, Lapp/spicetify/extension/spotify/privacy/SharingLinks;->sanitizeUrl(Ljava/lang/String;)Ljava/lang/String;
+                invoke-static/range { v$register .. v$register }, Lapp/spicetify/extension/spotify/privacy/SharingLinks;->onShareUrl(Ljava/lang/String;)Ljava/lang/String;
                 move-result-object v$register
             """.trimIndent(),
         )

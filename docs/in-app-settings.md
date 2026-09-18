@@ -8,7 +8,7 @@ Changing it takes effect on the next shared link and survives app restarts.
 ## Implementation shape
 
 The patch resolves Spotify's settings model while building the APK and
-generates a small typed bridge. The extension owns Android preferences and
+assembles a small typed bridge. The extension owns Android preferences and
 the settings screen. Spotify's obfuscated types stay in the generated bridge.
 
 | Component | Responsibility |
@@ -33,7 +33,7 @@ not offer a color control that cannot affect Spotify.
 
 Two designs were compared: a reflective runtime adapter and a bridge
 generated while patching. Both use a native menu entry and an owned Android
-screen. The generated bridge was selected because the target APK's callback
+screen. The typed bridge was selected because the target APK's callback
 constructor casts `Function1` to its concrete Kotlin lambda base class. A
 generic runtime proxy cannot satisfy that contract. Constructor descriptors
 alone are insufficient; the callback's return value and its consumers also
@@ -43,8 +43,10 @@ The APK trace distinguishes two boundaries. The `dtl` callback builds a
 rendering model while constructing the settings list. It must not open the
 activity. The navigation renderer handles the row's click later through
 `tyh0.b`. The bridge must supply a fresh row and its own navigation action.
-Native model construction and analytics operands still need verification
-before this hook can be implemented safely.
+The traced root factory provides the Activity and navigation renderer. A
+fresh renderer delegates existing navigation and handles only the reserved
+`spicetify:settings` route. Analytics code `-1` maps to `spicetify_settings`;
+the original standard-navigation codes are 1 through 65.
 
 Keep the reflective design's separation between the pure URL sanitizer and
 the preference-aware wrapper. Update artifact checks to distinguish an
@@ -78,9 +80,21 @@ verified.
 
 ## Current implementation status
 
-Local extension code provides named preferences, an activity, installed-patch
-flags, and a preference-aware sharing wrapper. Four preference tests pass,
-along with Android lint and the bundle build. The existing patch still calls
-the pure sanitizer. Application initialization, the native settings entry,
-activity registration, and capability flags are not connected yet. No menu or
-runtime toggle is available in the published prerelease.
+The local implementation connects application initialization, the native
+settings row, the non-exported Activity, capability flags, and all three
+sharing hooks. Hash snapshots of 32 inspected native classes reject changes
+to their schemas or code before hook injection. This intentionally supports
+only the inspected Spotify build.
+
+The bridge is original smali source, assembled into DEX during the build and
+merged through Morphe's public extension API. It uses DEX API 24; API 35
+assembly produced a DEX container header rejected by Morphe's extension reader.
+Snapshot hashes include the full classes because the obfuscated classes share
+methods across features. A change outside the settings branch can therefore
+refuse patching too. Review the trace before replacing a snapshot.
+
+Four preference tests, two snapshot tests, the existing unit suite, 26 sharing
+verifier cases, Android lint, and the bundle build pass. Sharing-only,
+theme-only, and combined APKs build. Seven altered-input or invalid-option
+cases fail without output APKs. Device verification is in progress; the
+published `dev.2` prerelease still has no settings menu.
