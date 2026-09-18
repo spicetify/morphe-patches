@@ -499,6 +499,43 @@ Spotify's local audio option is off again. Manager's Expert mode is off,
 and its custom file-picker preference was restored. The temporary emulator,
 HTTPS tunnel, and synthetic audio server are stopped.
 
+### Cancellation and final field layout
+
+Manager updated the existing local source to commit `9e844a5`, then built
+all four patches from its cached original APK. The frozen bundle has SHA-256
+`24c7edf7043b3cc7af0717970226a5caa015481f86af9f8e11c64a0c05eba7fb`.
+The exported APK has SHA-256
+`2b1ee2fcb2d46f9eefc015a10e157612449aaa8dca7bcce30ba4131f32969d87`.
+Independent checks pass for all four patches, exact settings bridge, private
+components, unchanged permissions, signature, and ten theme-color changes.
+Manager installed the same-key update, and the installed checksum matches.
+Login remained intact.
+
+Through the native settings row, the Pixel renders the smaller proportional
+fields and complete **Saved password** hint without overlapping controls.
+The long synthetic URL scrolls horizontally within its input. A working scan
+shows **Tracks ready: 1**. These observations close the field-layout check
+for that artifact.
+
+A slow HTTPS folder listing remained in **Scanning** until the switch was
+turned off. The screen changed to **Disabled** and remained there after the
+fixture finished sending the listing, with no audio requests for that folder.
+A second fixture returned the listing immediately but streamed its audio
+response slowly. The visible UI reported **Reading tags: 1 / 1** immediately
+before disabling, then **Disabled** afterward; that sequence took 5.9 seconds.
+Saving the normal fixture afterward recovered to **Tracks ready: 1**. This
+tests cancellation during metadata's real provider audio reads, not a switch
+change during native-player playback. The HTTPS relay continued draining
+some origin responses, so its logs do not prove immediate socket closure.
+
+**Forget server** cleared the fake connection, and the known-good default
+sharing APK was restored through a data-preserving ADB update. Local audio
+was not enabled during this pass. The fixture and tunnel are stopped; the
+emulator remained closed throughout. A subsequent help-text-only correction
+says disabling stops new requests and clears the track list, avoiding the
+previous promise of immediate server-access shutdown. That sentence was
+checked in source and the build, not reinstalled for another visual pass.
+
 ## Runtime and release checklist
 
 Use the normal Manager entry point before claiming release readiness.

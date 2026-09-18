@@ -43,7 +43,7 @@ final class ServerFilesSettings extends LinearLayout {
         label("Server files", 18);
         label("Stream your music from an HTTPS WebDAV folder. Enable Local audio files in Spotify's "
                 + "Apps and devices settings to show scanned tracks in Local Files. "
-                + "Save applies folder changes and starts a scan. Turning this off stops server access immediately.", 14);
+                + "Save applies folder changes and starts a scan. Turning this off stops new requests and clears the track list.", 14);
 
         Switch enabled = new Switch(activity);
         enabled.setText("Use server files");
