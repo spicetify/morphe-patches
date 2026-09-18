@@ -85,6 +85,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--stock", type=Path, required=True, help="Stock base APK")
     parser.add_argument("--patched", type=Path, required=True)
+    parser.add_argument("--bundle", type=Path, required=True, help="Exact patch bundle used for this APK")
     parser.add_argument("--desktop", type=Path, required=True, help="Morphe Desktop all.jar")
     parser.add_argument("--java", default="java")
     parser.add_argument("--aapt2", required=True)
@@ -133,10 +134,12 @@ def main():
             args.java, "-Xmx2g", "-cp", str(args.desktop),
             str(Path(__file__).with_name("VerifySettingsDex.java")),
             str(args.patched), "1" if args.sharing else "0", "1" if args.theme else "0",
+            str(args.bundle),
         ], check=True)
     subprocess.run([args.apksigner, "verify", str(args.patched)], check=True)
     print(json.dumps({
         "stockSha256": digest(args.stock), "patchedSha256": digest(args.patched),
+        "bundleSha256": digest(args.bundle),
         "defaultColorsChecked": len(before), "themeColorsChanged": len(expected),
         "sharing": args.sharing, "signatureVerified": True,
     }, indent=2))

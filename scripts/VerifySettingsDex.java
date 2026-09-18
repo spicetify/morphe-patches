@@ -2,6 +2,7 @@ import com.android.tools.smali.dexlib2.AccessFlags;
 import com.android.tools.smali.dexlib2.DexFileFactory;
 import com.android.tools.smali.dexlib2.Opcode;
 import com.android.tools.smali.dexlib2.Opcodes;
+import com.android.tools.smali.dexlib2.dexbacked.DexBackedDexFile;
 import com.android.tools.smali.dexlib2.iface.ClassDef;
 import com.android.tools.smali.dexlib2.iface.Field;
 import com.android.tools.smali.dexlib2.iface.Method;
@@ -19,20 +20,53 @@ import com.android.tools.smali.dexlib2.iface.reference.FieldReference;
 import com.android.tools.smali.dexlib2.iface.reference.MethodReference;
 import com.android.tools.smali.dexlib2.iface.reference.TypeReference;
 import com.android.tools.smali.dexlib2.immutable.reference.ImmutableMethodReference;
+import com.android.tools.smali.dexlib2.writer.io.MemoryDataStore;
+import com.android.tools.smali.dexlib2.writer.pool.DexPool;
 
 import java.io.File;
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.stream.Collectors;
+import java.util.zip.ZipFile;
 
 class VerifySettingsDex {
     static Map<String, ClassDef> classes = new HashMap<>();
+    static Map<String, byte[]> expectedBridge = new HashMap<>();
     static final String PREFIX = "Lapp/spicetify/extension/spotify/settings/";
     static final String BRIDGE = PREFIX + "nativebridge/";
+
+    static byte[] canonical(ClassDef definition) {
+        var pool = new DexPool(Opcodes.forApi(35));
+        pool.internClass(definition);
+        var output = new MemoryDataStore();
+        try {
+            try {
+                pool.writeTo(output);
+                return output.getData();
+            } finally {
+                output.close();
+            }
+        } catch (IOException error) {
+            throw new UncheckedIOException(error);
+        }
+    }
+
+    static void loadBridge(byte[] dex) {
+        expectedBridge = new HashMap<>();
+        var file = new DexBackedDexFile(Opcodes.forApi(24), ByteBuffer.wrap(dex));
+        for (var definition : file.getClasses()) {
+            require(definition.getType().startsWith(BRIDGE), "Unexpected canonical bridge type");
+            expectedBridge.put(definition.getType(), canonical(definition));
+        }
+    }
 
     static String signature(MethodReference m) {
         return m.getName() + m.getParameterTypes() + m.getReturnType();
@@ -88,13 +122,20 @@ class VerifySettingsDex {
 
     public static void main(String[] args) throws Exception {
         require(
-                args.length == 3,
-                "Usage: VerifySettingsDex.java APK SHARING_ENABLED THEME_ENABLED");
+                args.length == 4,
+                "Usage: VerifySettingsDex.java APK SHARING_ENABLED THEME_ENABLED BUNDLE");
         require(
                 Set.of("0", "1").contains(args[1]) && Set.of("0", "1").contains(args[2]),
                 "Expected boolean flags 0 or 1");
         classes = new HashMap<>();
         load(args[0]);
+        try (var bundle = new ZipFile(args[3])) {
+            var entry = bundle.getEntry("extensions/settings.dex");
+            require(entry != null, "Bundle lacks the canonical settings bridge");
+            try (var input = bundle.getInputStream(entry)) {
+                loadBridge(input.readAllBytes());
+            }
+        }
         verify(args[1].equals("1"), args[2].equals("1"));
         System.out.println(
                 "Settings DEX verified: one startup hook, one native settings row hook,"
@@ -477,5 +518,12 @@ class VerifySettingsDex {
         }
         require(actual.equals(expected), "Navigator methods differ from native interface");
         require(checked > 0, "No bridge references checked");
+        require(expectedBridge.keySet().equals(
+                        owned.stream().map(ClassDef::getType).collect(Collectors.toSet())),
+                "Canonical bundle must contain the same four bridge classes");
+        for (var definition : owned) {
+            require(Arrays.equals(expectedBridge.get(definition.getType()), canonical(definition)),
+                    "Bridge implementation differs from bundle: " + definition.getType());
+        }
     }
 }

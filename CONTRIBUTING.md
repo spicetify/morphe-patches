@@ -34,6 +34,7 @@ After applying a bundle with Morphe Desktop, inspect the signed output:
 python3 scripts/verify-artifact.py \
   --stock /path/to/stock-base.apk \
   --patched /path/to/patched.apk \
+  --bundle /path/to/patches.mpp \
   --desktop /path/to/morphe-desktop-all.jar \
   --aapt2 "$ANDROID_HOME/build-tools/36.0.0/aapt2" \
   --apksigner "$ANDROID_HOME/build-tools/36.0.0/apksigner" \
@@ -48,7 +49,11 @@ the exact background, accent, and pressed-accent values used for patching.
 The checker verifies default color values and IDs, equivalent relocated XML
 selectors, the local builder hook, both final URL hooks, the preference-aware
 wrapper, the private settings Activity, unchanged permissions, and the APK
-signature.
+signature. It also compares all four installed settings bridge classes with
+the exact bundle used for patching, including their code and class metadata.
+This catches missing or replaced menu code that still has valid references.
+Verify the bundle's release checksum and provenance separately; matching an
+untrusted bundle does not establish that its code is correct.
 It does not execute Spotify or cover every resource configuration.
 
 Check refusal paths against the same stock base APK and bundle:
@@ -77,8 +82,10 @@ cases against your private APK:
 ./gradlew :patches:testSettingsArtifactVerifier -PsettingsApk=/path/to/patched.apk
 ```
 
-These tests remove or miswire startup, menu, capability, analytics, and bridge
-instructions in memory. The stock and patched APKs stay unchanged. CI cannot
+Use an APK built from the current checkout's bridge. These tests remove or
+miswire startup, menu, capability, analytics, Activity, and bridge instructions
+in memory, including empty menu and navigation implementations. The stock
+and patched APKs stay unchanged. CI cannot
 run these cases without a privately supplied Spotify fixture.
 
 Record the stock APK's version, version code, ABI, SHA-256, Android version,

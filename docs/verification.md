@@ -280,11 +280,28 @@ GitHub provenance verification passes, and the dev feed points to this asset.
 Manager's existing source update control fetched `dev.3` on the Pixel.
 This run was manually dispatched; stable publishing remains disabled.
 
-Code review: skipped (ce-code-review unavailable). The review workflow hit
-the session's agent-thread limit before its required reviewer and report
-steps could start. Two simplification reviewers and a manual source pass ran;
-the third simplification lens ran inline. The dedicated review did not complete.
-The source pass preserved the strict ABI guards and native register contracts.
+The first dedicated review attempt could not complete because reviewer
+capacity was unavailable. A later six-part review completed against `757d279`,
+covering correctness, tests, maintainability, security, reliability, and
+adversarial cases. It found no confirmed production-code defect. It reproduced
+an output-verifier gap: replacing the menu-insertion method with `return-void`
+still passed. A separate probe also accepted a missing settings Activity.
+
+The verifier now requires the Activity and its constructor, lifecycle method,
+and launch method. It resolves extension-owned bridge references and compares
+all four complete installed bridge classes with the exact patch bundle's
+canonical `extensions/settings.dex`. It serializes each class separately to
+avoid differences from APK-level DEX layout. The artifact report records the
+bundle hash as well as the APK hashes. Matching the bundle complements source
+review and runtime testing; it does not prove arbitrary bundle code is correct.
+
+Both false passes were reproduced before the fixes. All 22 mutation cases now
+pass, including empty menu and navigation methods, missing Activity methods,
+and the previous hook and ABI cases. Real Manager and Desktop outputs match
+the published bundle's bridge. A focused follow-up review independently reran
+the 22 cases and confirmed the argument wiring and refusal of a bundle without
+the bridge. Both findings are resolved. No external code-review service was
+used.
 
 ## Verified dev.3 settings on Pixel 8
 
@@ -321,11 +338,20 @@ to accessibility.
 The original font size and portrait rotation were restored. TalkBack speech
 was not tested.
 
-Remaining settings checks include signed-in theme-only and combined screens,
-preference persistence across a later same-key settings update, and another
-notification/queue pass on `dev.3`. The dedicated review remains unavailable
-as recorded above. These gaps and the broader checklist below keep the source
-experimental.
+Manager's Expert mode then built a combined profile using Patcher 1.14.0,
+**Fast** mode, a 1024 MB process limit, and the cached original APK. Only this
+source's two patches were selected. The exported APK passed the updated
+artifact checker, including exact bridge comparison, all ten expected theme
+changes, and unchanged app permissions. Its SHA-256 is
+`44c018ec587245c18d215c4d93439110d2795560169fdea63a374a4a1a33413d`.
+Installation again preserved login. The sharing switch had been set off
+before updating and remained off afterward, proving preference retention
+across a same-key settings update. The combined menu shows both the switch
+and the theme repatching instructions, with readable labels and spacing.
+
+Remaining settings checks include the signed-in theme-only screen and another
+notification/queue pass on `dev.3`. These gaps and the broader checklist below
+keep the source experimental.
 
 ## Runtime and release checklist
 

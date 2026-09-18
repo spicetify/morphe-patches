@@ -120,8 +120,20 @@ class VerifySettingsDexTest {
     public static void main(String[] args) throws Exception {
         VerifySettingsDex.classes = new HashMap<>();
         VerifySettingsDex.load(args[0]);
+        try (var input = VerifySettingsDexTest.class.getResourceAsStream("/extensions/settings.dex")) {
+            if (input == null) throw new AssertionError("Build the canonical bridge first");
+            VerifySettingsDex.loadBridge(input.readAllBytes());
+        }
         original = Map.copyOf(VerifySettingsDex.classes);
         VerifySettingsDex.verify(true, true);
+        reject("empty menu insertion", () -> mutate(B + "SettingsBridge;", "append", c -> {
+            c.clear();
+            c.add(new ImmutableInstruction10x(Opcode.RETURN_VOID));
+        }));
+        reject("empty settings navigation", () -> mutate(B + "Navigator;", "b", c -> {
+            c.clear();
+            c.add(new ImmutableInstruction10x(Opcode.RETURN_VOID));
+        }));
         reject("missing settings Activity",
                 () -> VerifySettingsDex.classes.remove(P + "SpicetifySettingsActivity;"));
         reject("settings class is not an Activity",
