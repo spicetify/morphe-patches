@@ -78,8 +78,7 @@ val assembleNativeSettings = tasks.register<JavaExec>("assembleNativeSettings") 
     args("assemble", "src/main/smali", "--api", "24", "--output",
         nativeBridgeOutput.get().file("extensions/settings.dex").asFile.absolutePath)
 }
-sourceSets.main { resources.srcDir(nativeBridgeOutput) }
-tasks.processResources { dependsOn(assembleNativeSettings) }
+sourceSets.main { resources.srcDir(assembleNativeSettings) }
 
 tasks.named<JavaCompile>("compileJava") {
     sourceCompatibility = "11"
