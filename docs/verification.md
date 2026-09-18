@@ -447,9 +447,46 @@ four-patch profile from its saved original APK with the 1,024 MB process
 runtime. Its exported APK has SHA-256
 `7b64bd88ff6ba397a1f182376c2da6ba477de5e59acf68130332657684ae6b85`.
 It passes the same artifact checks and uses the existing Pixel Manager
-signing certificate. Android's update flow is waiting for direct fingerprint
-confirmation. The installed APK still matches the default sharing profile;
-signed-in optional-feature testing remains open.
+signing certificate. After direct fingerprint confirmation, Android completed
+the update. The installed APK matches the exported artifact, Spotify remains
+signed in, and all four settings sections appear through the native row.
+The 22 settings-verifier negative cases also pass against this APK.
+
+Home displayed eight shortcuts, and the picker discovered all eight on first
+use. Selecting the last shortcut, saving, and restarting moved it to first
+while preserving the relative order of the other seven. Its native click
+action still opened the correct playlist. The picker retained the checked
+selection after restart. Clearing it, saving, and restarting restored the
+exact original eight-shortcut order. The temporary pin is cleared.
+
+A synthetic HTTPS WebDAV fixture served an eight-second PCM WAV with fake
+credentials. The Pixel completed folder discovery and Android metadata
+extraction through the private provider. Enabling Spotify's local audio
+option exposed the fixture in **Local Files**, with an eight-second duration
+in the native player. Seeking to four seconds produced HTTP 206 reads from
+nonzero offsets. Resuming advanced the displayed position from four to six
+seconds with the Pause control visible, then playback was paused. Changing
+to a fixture that deliberately ignores byte ranges produced the documented
+scan-failure message instead of a ready track. Saving a working replacement
+folder recovered to one ready track, with all new requests confined to that
+folder. Turning server files off immediately changed the status to Disabled.
+**Forget server** cleared the saved fields, and Local Files returned to its
+empty state. Android rejected a shell UID's provider query because the
+provider is not exported. The user confirmed hearing the synthetic tone.
+Disabling during an active read still needs a runtime check. No personal
+server credentials or music were used.
+
+The live review also found awkward singular track-count text and an oversized
+password hint. The source now uses **Tracks ready: 1**, smaller proportional
+input text, and a short **Saved password** hint with the retention rule in
+the field description. Unit tests, lint, and bundle packaging pass; these
+presentation changes still need a final device rendering check.
+
+After the tests, the known-good default sharing APK was restored with a
+data-preserving same-key ADB update, and its installed checksum was verified.
+Spotify's local audio option is off again. Manager's Expert mode is off,
+and its custom file-picker preference was restored. The temporary emulator,
+HTTPS tunnel, and synthetic audio server are stopped.
 
 ## Runtime and release checklist
 

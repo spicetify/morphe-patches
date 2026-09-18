@@ -58,7 +58,7 @@ public final class ServerIndex {
             if (Thread.currentThread().isInterrupted()) return;
             ServerConfig.publish(snapshot, () -> {
                 index = new Index(snapshot, Collections.unmodifiableList(completed));
-                status = completed.size() + " tracks ready";
+                status = "Tracks ready: " + completed.size();
                 LocalServerHook.requestRescan();
             });
         } catch (Exception ex) {

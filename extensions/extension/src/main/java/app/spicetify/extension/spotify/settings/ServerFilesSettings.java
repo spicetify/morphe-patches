@@ -3,6 +3,7 @@ package app.spicetify.extension.spotify.settings;
 import android.content.Context;
 import android.app.AlertDialog;
 import android.graphics.Color;
+import android.graphics.Typeface;
 import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
@@ -55,8 +56,9 @@ final class ServerFilesSettings extends LinearLayout {
         EditText username = input("Username", saved.username(), InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD);
         EditText password = input("Password or app password", "", InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
         password.setSaveEnabled(false);
-        password.setHint(saved.hasPassword() ? "Leave blank to keep saved password" : "Password");
-        label("Use an app password when your server supports it. Your credentials stay on this device.", 14);
+        password.setHint(saved.hasPassword() ? "Saved password" : "Password");
+        label("Leave blank to keep the saved password for this folder and username. "
+                + "Use an app password when supported.", 14);
         status = label(ServerIndex.status(), 14);
         status.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);
 
@@ -77,7 +79,7 @@ final class ServerFilesSettings extends LinearLayout {
                 ServerConfig.configure(enabled.isChecked(), url.getText().toString(), username.getText().toString(), secret);
                 validationError = null;
                 password.setText("");
-                password.setHint(ServerConfig.snapshot().hasPassword() ? "Leave blank to keep saved password" : "Password");
+                password.setHint(ServerConfig.snapshot().hasPassword() ? "Saved password" : "Password");
                 if (enabled.isChecked()) ServerIndex.scanAsync();
                 status.setText(ServerIndex.status());
             } catch (IllegalArgumentException error) {
@@ -121,6 +123,8 @@ final class ServerFilesSettings extends LinearLayout {
         input.setId(View.generateViewId());
         label.setLabelFor(input.getId());
         input.setInputType(type);
+        input.setTypeface(Typeface.DEFAULT);
+        input.setTextSize(16);
         input.setSingleLine(true);
         input.setText(value);
         input.setMinHeight(dp(48));
