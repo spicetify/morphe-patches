@@ -383,15 +383,20 @@ patches are disabled by default. Android 7 keeps the other patches available;
 server streaming requires Android 8 or later.
 
 The final local suite passes 53 extension tests, 34 patch tests, 26 sharing
-verifier cases, Android lint, and bundle packaging. Independent review
+verifier cases, 22 settings-verifier negative cases, Android lint, and bundle
+packaging. Independent review
 verified the eight Home snapshots and four local-file snapshots against stock
 DEX, then checked the four injected hooks and their public static targets.
 Review findings about excess pin selections, disabling with invalid draft
 fields, disappearing validation errors, and repeated HTTP headers were fixed
 and covered by regression tests.
 
-All four patches apply together. The final local bundle has SHA-256
+All four patches apply together. The initial tested local bundle has SHA-256
 `4df88f5e62a958ae972fd5d00827f27cba3d93667846c6ddf453f65c062a521a`.
+Gradle repackaged the bundle while running the settings-verifier cases.
+The frozen checkpoint bundle has SHA-256
+`49bd91d851af7dae330081b157214f35e31589422a3035c59b386fe59b10d388`;
+the independent artifact check also passes against that exact bundle.
 The signed base-APK artifact has SHA-256
 `bfac0f27e3796ffd3abe9322091787eea07914b077c89138f3cd30df50ec608c`.
 Independent checks pass for the sharing hooks, exact settings bridge, four
