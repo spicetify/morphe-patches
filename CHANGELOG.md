@@ -1,3 +1,9 @@
+## [1.0.0-dev.2](https://github.com/spicetify/morphe-patches/compare/v1.0.0-dev.1...v1.0.0-dev.2) (2026-09-18)
+
+### 🐛 Bug Fixes
+
+* clean server-generated Spotify sharing links ([c01bddb](https://github.com/spicetify/morphe-patches/commit/c01bddb1c07c670c94922961ee955c7ecc0d064f))
+
 ## 1.0.0-dev.1 (2026-09-17)
 
 ### 🐛 Bug Fixes
