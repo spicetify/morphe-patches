@@ -7,6 +7,7 @@ import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.text.InputType;
+import android.text.TextUtils;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
@@ -22,7 +23,8 @@ final class ServerFilesSettings extends LinearLayout {
     private String validationError;
     private final Runnable refresh = new Runnable() {
         @Override public void run() {
-            status.setText(validationError == null ? ServerIndex.status() : validationError);
+            String next = validationError == null ? ServerIndex.status() : validationError;
+            if (!TextUtils.equals(status.getText(), next)) status.setText(next);
             handler.postDelayed(this, 1000);
         }
     };

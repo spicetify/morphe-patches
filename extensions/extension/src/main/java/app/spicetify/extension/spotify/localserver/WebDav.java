@@ -17,6 +17,7 @@ public final class WebDav {
     static final int MAX_TRACKS = 500;
     private static final int TIMEOUT = 10000;
     private static final Pattern CONTENT_RANGE = Pattern.compile("bytes ([0-9]+)-([0-9]+)/([0-9]+)");
+    private static final Pattern AUDIO_FILE = Pattern.compile(".*\\.(mp3|m4a|aac|flac|ogg|oga|opus|wav|mp4|m4b)$");
     private final ServerConnection config;
     private final BooleanSupplier active;
     private long deadline = Long.MAX_VALUE;
@@ -27,6 +28,7 @@ public final class WebDav {
     List<RemoteTrack> scan() throws IOException {
         deadline = System.nanoTime() + 120_000_000_000L;
         List<RemoteTrack> tracks = new ArrayList<>();
+        Set<String> trackIds = new HashSet<>();
         Set<URI> visited = new HashSet<>();
         ArrayDeque<Folder> folders = new ArrayDeque<>();
         folders.add(new Folder(config.root, 0));
@@ -48,14 +50,14 @@ public final class WebDav {
                     if (tracks.size() == MAX_TRACKS) throw new IOException("Choose a folder with at most 500 audio files.");
                     if (entry.size <= 0 || entry.size > 2L * 1024 * 1024 * 1024) throw new IOException("Audio files must report a size between 1 byte and 2 GB.");
                     RemoteTrack track = new RemoteTrack(config, entry.url, entry.size, entry.etag);
-                    if (tracks.stream().noneMatch(existing -> existing.id.equals(track.id))) tracks.add(track);
+                    if (trackIds.add(track.id)) tracks.add(track);
                 }
             }
         }
         return tracks;
     }
 
-    static boolean isAudio(String name) { return name.toLowerCase(Locale.ROOT).matches(".*\\.(mp3|m4a|aac|flac|ogg|oga|opus|wav|mp4|m4b)$"); }
+    static boolean isAudio(String name) { return AUDIO_FILE.matcher(name.toLowerCase(Locale.ROOT)).matches(); }
     private static final class Folder {
         final URI url; final int depth;
         Folder(URI url, int depth) { this.url = url; this.depth = depth; }
