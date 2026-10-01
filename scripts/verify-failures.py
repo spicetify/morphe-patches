@@ -33,7 +33,7 @@ def altered_apk(source, target, kind):
                     data = bytearray(data.replace(old, new))
                     # The DEX signature field is SHA-1 by Android specification; this is
                     # file-format integrity, not a security-sensitive digest.
-                    data[12:32] = hashlib.sha1(data[32:]).digest()
+                    data[12:32] = hashlib.sha1(data[32:]).digest()  # nosemgrep
                     struct.pack_into("<I", data, 8, zlib.adler32(data[12:]))
                     changes += count
             elif kind == "analytics-perm" and entry.filename == "AndroidManifest.xml":
