@@ -66,23 +66,20 @@ val analyticsPatch = bytecodePatch(
         // EventSenderCoreBridgeImpl) still funnels into the original publish method: keeping
         // that path intact preserves the native event contract (the send ack resolves through
         // the database-write subscriber, and the native core misbehaves if it is shortcut).
-        // Instead, neutralize the final Room INSERT: events flow through validation, acks,
-        // and the flush triggers, but nothing is ever stored, so the database stays empty and
-        // the flusher has nothing to publish to gabo-receiver-service.
-        val insert = mutableClassDefBy("Lp/lmw;").methods.singleOrNull {
-            it.name == "g" && it.parameterTypes == listOf(
+        // Instead, skip the Room transaction that stores the event: it runs only from here,
+        // and its caller already treats a return as success, so events flow through validation,
+        // acks, and the flush triggers while the database stays empty and the flusher has
+        // nothing to publish to gabo-receiver-service.
+        val insert = mutableClassDefByOrNull("Lp/t4y;")?.methods?.singleOrNull {
+            it.name == "a" && it.parameterTypes == listOf(
                 "Ljava/lang/String;",
                 "[B",
-                "Lp/axw0;",
                 "[B",
-                "Lp/gm70;",
-                "Lp/xl90;",
                 "Z",
-                "Ljava/lang/String;",
                 "Ljava/lang/String;",
                 "J",
             )
-        } ?: throw PatchException("Spotify event insert p.lmw.g not found.")
+        } ?: throw PatchException("Spotify event insert p.t4y.a not found.")
         insert.addInstructions(0, "return-void")
 
         // Metrics snapshots bypass the funnel with an in-memory transport of their own.
@@ -93,14 +90,14 @@ val analyticsPatch = bytecodePatch(
         metrics.addInstructions(0, "return-void")
 
         // Never schedule the event-sender flush worker.
-        val scheduler = mutableClassDefBy("Lp/ukw;").methods.singleOrNull {
-            it.name == "a" && it.parameterTypes.isEmpty()
+        val scheduler = mutableClassDefBy("Lp/p6y;").methods.singleOrNull {
+            it.name == "a" && it.parameterTypes.isEmpty() && it.returnType == "V"
         } ?: throw PatchException("Event sender worker schedule site not found.")
         scheduler.addInstructions(0, "return-void")
 
         // Playback logging RPC: answer with an error, which its subscriber already treats
         // as terminal, so nothing is reported and the request object is never re-sent.
-        val pendingEvents = mutableClassDefBy("Lp/g2m0;").methods.singleOrNull {
+        val pendingEvents = mutableClassDefBy("Lp/p1p0;").methods.singleOrNull {
             it.name == "a" &&
                 it.parameterTypes == listOf("Lcom/spotify/pending_events/esperanto/proto/ReplacePendingEventRequest;")
         } ?: throw PatchException("Pending events RPC not found.")
@@ -113,21 +110,22 @@ val analyticsPatch = bytecodePatch(
             """.trimIndent(),
         )
 
-        // comScore streaming measurement (publisherId 15654041) never starts.
-        val comScore = mutableClassDefBy("Lp/uxe;").methods.singleOrNull {
-            it.name == "b" && it.parameterTypes.isEmpty()
-        } ?: throw PatchException("comScore start site not found.")
-        comScore.addInstructions(0, "return-void")
+        // comScore streaming measurement (publisherId 15654041) reaches the SDK only through
+        // this handler, so reporting a handled message keeps it from ever starting or notifying.
+        val comScore = mutableClassDefBy("Lp/xtf;").methods.singleOrNull {
+            it.name == "handleMessage" && it.parameterTypes == listOf("Landroid/os/Message;")
+        } ?: throw PatchException("comScore message handler not found.")
+        comScore.addInstructions(0, "const/4 v0, 0x1\n    return v0")
 
         // Facebook App Events: every logEvent variant funnels into this method.
-        val facebook = mutableClassDefBy("Lp/a45;").methods.singleOrNull {
-            it.name == "u" && it.parameterTypes == listOf(
+        val facebook = mutableClassDefBy("Lp/ge5;").methods.singleOrNull {
+            it.name == "z" && it.parameterTypes == listOf(
                 "Ljava/lang/String;",
                 "Ljava/lang/Double;",
                 "Landroid/os/Bundle;",
                 "Z",
                 "Ljava/util/UUID;",
-                "Lp/yck0;",
+                "Lp/x9n0;",
             )
         } ?: throw PatchException("Facebook App Events funnel not found.")
         facebook.addInstructions(0, "return-void")

@@ -13,31 +13,32 @@ import com.android.tools.smali.dexlib2.iface.reference.MethodReference;
 
 class VerifyAnalyticsDex {
     static final String ANALYTICS = "Lapp/spicetify/extension/spotify/privacy/Analytics;";
-    static final List<String> INSERT_PARAMS = List.of("Ljava/lang/String;", "[B", "Lp/axw0;",
-        "[B", "Lp/gm70;", "Lp/xl90;", "Z", "Ljava/lang/String;", "Ljava/lang/String;", "J");
+    static final List<String> INSERT_PARAMS = List.of("Ljava/lang/String;", "[B", "[B", "Z",
+        "Ljava/lang/String;", "J");
     static final List<String> PENDING_PARAMS =
         List.of("Lcom/spotify/pending_events/esperanto/proto/ReplacePendingEventRequest;");
     static final List<String> FACEBOOK_PARAMS = List.of("Ljava/lang/String;", "Ljava/lang/Double;",
-        "Landroid/os/Bundle;", "Z", "Ljava/util/UUID;", "Lp/yck0;");
+        "Landroid/os/Bundle;", "Z", "Ljava/util/UUID;", "Lp/x9n0;");
+    static final String INSERT_OWNER = "Lp/t4y;";
 
     static void require(boolean condition, String message) {
         if (!condition) throw new AssertionError(message);
     }
 
     static void verifyHooks(List<? extends ClassDef> classes, boolean enabled) {
-        // The native event contract is untouched; the final Room INSERT is skipped so
-        // nothing is ever stored for the flusher to upload.
-        verifyReturnsVoid(classes, "Lp/lmw;", "g", INSERT_PARAMS, enabled);
+        // The native event contract is untouched; the Room transaction that stores the event
+        // is skipped so nothing is ever persisted for the flusher to upload.
+        verifyReturnsVoid(classes, INSERT_OWNER, "a", INSERT_PARAMS, enabled);
 
         // Metrics snapshots bypass the funnel with their own in-memory transport.
         verifyReturnsVoid(classes, "Lcom/spotify/eventsender/corebridge/EventSenderCoreBridgeImpl;",
             "queueMetricsDataSnapshotForSending", List.of("[B", "[B"), enabled);
 
         // The WorkManager schedule site for the event-sender flush worker.
-        verifyReturnsVoid(classes, "Lp/ukw;", "a", List.of(), enabled);
+        verifyReturnsVoid(classes, "Lp/p6y;", "a", List.of(), enabled);
 
         // Playback logging RPC answered locally with an error.
-        var pending = one(classes, "Lp/g2m0;", "a", PENDING_PARAMS, "Lio/reactivex/rxjava3/core/Single;");
+        var pending = one(classes, "Lp/p1p0;", "a", PENDING_PARAMS, "Lio/reactivex/rxjava3/core/Single;");
         var pendingCode = code(pending);
         boolean answered = pendingCode.size() > 2
                 && pendingCode.get(0) instanceof ReferenceInstruction reference
@@ -57,9 +58,24 @@ class VerifyAnalyticsDex {
             require(!answered, "Pending events RPC must keep calling Spotify");
         }
 
-        // comScore start and the Facebook App Events funnel.
-        verifyReturnsVoid(classes, "Lp/uxe;", "b", List.of(), enabled);
-        verifyReturnsVoid(classes, "Lp/a45;", "u", FACEBOOK_PARAMS, enabled);
+        // comScore reaches its SDK only through this handler, which must report every message
+        // as handled without acting on it.
+        var comScore = one(classes, "Lp/xtf;", "handleMessage", List.of("Landroid/os/Message;"), "Z");
+        var comScoreCode = code(comScore);
+        boolean swallowed = comScoreCode.size() > 1
+                && comScoreCode.get(0).getOpcode() == Opcode.CONST_4
+                && comScoreCode.get(1).getOpcode() == Opcode.RETURN
+                && ((NarrowLiteralInstruction) comScoreCode.get(0)).getNarrowLiteral() == 1
+                && ((OneRegisterInstruction) comScoreCode.get(1)).getRegisterA()
+                    == ((OneRegisterInstruction) comScoreCode.get(0)).getRegisterA();
+        if (enabled) {
+            require(swallowed, "comScore message handler must swallow every message");
+        } else {
+            require(!swallowed, "comScore message handler must keep its body");
+        }
+
+        // The Facebook App Events funnel.
+        verifyReturnsVoid(classes, "Lp/ge5;", "z", FACEBOOK_PARAMS, enabled);
     }
 
     static void verifyReturnsVoid(List<? extends ClassDef> classes, String type, String name,
@@ -108,14 +124,14 @@ class VerifyAnalyticsDex {
         var funnelSeen = false;
         for (String entry : container.getDexEntryNames()) {
             for (var cls : container.getEntry(entry).getDexFile().getClasses()) {
-                if (cls.getType().equals("Lp/lmw;")) {
-                    require(!funnelSeen, "Lp/lmw; defined in multiple dex files");
+                if (cls.getType().equals(INSERT_OWNER)) {
+                    require(!funnelSeen, INSERT_OWNER + " defined in multiple dex files");
                     funnelSeen = true;
                 }
                 classes.add(cls);
             }
         }
-        require(funnelSeen, "Lp/lmw; not found");
+        require(funnelSeen, INSERT_OWNER + " not found");
         verifyHooks(classes, enabled);
     }
 }
