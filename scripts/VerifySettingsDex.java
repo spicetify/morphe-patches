@@ -202,6 +202,18 @@ class VerifySettingsDex {
                 && m.getName().equals(name);
     }
 
+    static boolean followsServerProcessGate(List<Instruction> code, int hookIndex) {
+        if (hookIndex != 4) {
+            return false;
+        }
+        return code.get(0).getOpcode() == Opcode.INVOKE_STATIC_RANGE
+                && ref(code.get(0)).equals(
+                        "Lapp/spicetify/extension/spotify/localserver/ServerProcess;->skipApplication(Landroid/content/Context;)Z")
+                && code.get(1).getOpcode() == Opcode.MOVE_RESULT
+                && code.get(2).getOpcode() == Opcode.IF_EQZ
+                && code.get(3).getOpcode() == Opcode.RETURN_VOID;
+    }
+
     static void verifyHooks() {
         int startup = 0, append = 0;
         for (var c : classes.values()) {
@@ -217,13 +229,16 @@ class VerifySettingsDex {
                             continue;
                         }
                         startup++;
+                        // The local-server patch guards onCreate with a ServerProcess early
+                        // return before Spotify's start-up, so the initialize hook may follow
+                        // that gate instead of leading the method.
                         require(
                                 c.getType().equals("Lcom/spotify/music/SpotifyApplication;")
                                         && m.getName().equals("onCreate")
                                         && m.getParameterTypes().isEmpty()
                                         && m.getReturnType().equals("V")
                                         && !AccessFlags.STATIC.isSet(m.getAccessFlags())
-                                        && n == 0,
+                                        && (n == 0 || followsServerProcessGate(code, n)),
                                 "Settings startup hook must begin Application.onCreate");
                         require(
                                 i.getOpcode() == Opcode.INVOKE_STATIC_RANGE
