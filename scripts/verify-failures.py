@@ -21,13 +21,13 @@ def altered_apk(source, target, kind):
                 old, new = {"sharing": (b"Invalid uri ", b"Invalid urj "),
                             "sharing-response": (b"fullUrl_", b"testUrl_"),
                             "settings": (b"aboutPage", b"aboutPagg"),
-                            "home": (b"Lp/joz0;", b"Lp/jpz0;"),
+                            "home": (b"Lp/te31;", b"Lp/te32;"),
                             "navigation": (b"premium_tab_enabled", b"premium_tab_enablex"),
                             "ads": (b"featureTypeCase_", b"featureTypeTest_"),
                             "player-ads": (b"sectionTypeCase_", b"sectionTypeTest_"),
                             "server": (b"Lcom/spotify/localfiles/mediastore/MediaStoreReader;",
                                        b"Lcom/spotify/localfiles/mediastore/MediaStoreReades;"),
-                            "analytics": (b"Lp/xl90;", b"Lp/xl91;")}[kind]
+                            "analytics": (b"Lp/t4y;", b"Lp/T4y;")}[kind]
                 count = data.count(old)
                 if count:
                     data = bytearray(data.replace(old, new))
@@ -66,9 +66,9 @@ def main():
                               (args.stock, args.bundle, args.desktop))
     cases = [
         ("changed-settings-menu", "settings", "Clean sharing links", None,
-         "Spotify settings ABI changed: Lp/xlt;"),
+         "Spotify settings ABI changed: Lp/y3v;"),
         ("missing-sharing-builder", "sharing", "Clean sharing links", None,
-         "Spotify settings ABI changed: Lp/ion;"),
+         "Expected one Spotify share URL builder, found 0."),
         ("changed-sharing-response", "sharing-response", "Clean sharing links", None,
          "Spotify sharing response getter for fullUrl_ changed."),
         ("missing-theme-resource", "theme", "Theme colors", None,
@@ -84,7 +84,7 @@ def main():
         ("changed-player-ad-model", "player-ads", "Hide player ad cards", None,
          "Spotify player advertising ABI changed:"),
         ("changed-event-insert", "analytics", "Remove analytics and tracking", None,
-         "Spotify event insert p.lmw.g not found."),
+         "Spotify event insert p.t4y.a not found."),
         ("missing-ad-permission", "analytics-perm", "Remove analytics and tracking", None,
          "Missing ad identifier permission"),
     ]
