@@ -13,6 +13,8 @@ import app.spicetify.patches.spotify.settings.settingsPatch
 import app.spicetify.patches.spotify.spotifyCompatibility
 import com.android.tools.smali.dexlib2.Opcode
 import com.android.tools.smali.dexlib2.iface.instruction.OneRegisterInstruction
+import com.android.tools.smali.dexlib2.iface.instruction.ReferenceInstruction
+import com.android.tools.smali.dexlib2.iface.reference.MethodReference
 import java.util.Properties
 
 private const val READER = "Lcom/spotify/localfiles/mediastore/MediaStoreReader;"
@@ -106,7 +108,7 @@ val localFilesFromServerPatch = bytecodePatch(
         }
 
         // Track files are served from their own process; there, Spotify's own start-up is skipped.
-        val application = mutableClassDefBy("Lcom/spotify/music/SpotifyApplication;").methods.single {
+        val application = mutableClassDefBy("Lp/qb61;").methods.single {
             it.name == "onCreate" && it.parameterTypes.isEmpty() && it.returnType == "V"
         }
         requireScratchRegister(application)
@@ -117,7 +119,7 @@ val localFilesFromServerPatch = bytecodePatch(
             return-void
         """.trimIndent(), ExternalLabel("spotify", application.getInstruction(0)))
         // Spotify's memory callback reads state its skipped start-up would have created.
-        val trimMemory = mutableClassDefBy("Lcom/spotify/music/SpotifyApplication;").methods.single {
+        val trimMemory = mutableClassDefBy("Lp/qb61;").methods.single {
             it.name == "onTrimMemory" && it.parameterTypes == listOf("I") && it.returnType == "V"
         }
         requireScratchRegister(trimMemory)
@@ -132,10 +134,20 @@ val localFilesFromServerPatch = bytecodePatch(
         val request = mutableClassDefBy("Lp/g8e1;").methods.single {
             it.name == "i" && it.parameterTypes == listOf("Lp/ki90;") && it.returnType == OBSERVABLE
         }
-        val pageReturns = request.implementation!!.instructions.withIndex().filter { it.value.opcode == Opcode.RETURN_OBJECT }
+        // Error paths return null without going through the mapped request, so the window return
+        // is the one that carries the result of Observable.map straight out of the method.
+        val requestCode = request.implementation!!.instructions.toList()
+        val pageReturns = requestCode.indices.filter { index ->
+            index >= 2 && requestCode[index].opcode == Opcode.RETURN_OBJECT &&
+                requestCode[index - 1].opcode == Opcode.MOVE_RESULT_OBJECT &&
+                (requestCode[index - 1] as OneRegisterInstruction).registerA ==
+                    (requestCode[index] as OneRegisterInstruction).registerA &&
+                ((requestCode[index - 2] as? ReferenceInstruction)?.reference as? MethodReference)
+                    ?.let { it.definingClass == OBSERVABLE && it.name == "map" } == true
+        }
         if (pageReturns.size != 1) throw PatchException("Expected one Your Library request return.")
-        val pages = (pageReturns.single().value as OneRegisterInstruction).registerA
-        request.addInstructions(pageReturns.single().index, """
+        val pages = (requestCode[pageReturns.single()] as OneRegisterInstruction).registerA
+        request.addInstructions(pageReturns.single(), """
             invoke-static/range {v$pages .. v$pages}, $ROWS->page($OBSERVABLE)$OBSERVABLE
             move-result-object v$pages
         """.trimIndent())

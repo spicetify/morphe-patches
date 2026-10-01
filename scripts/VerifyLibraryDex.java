@@ -39,9 +39,9 @@ class VerifyLibraryDex {
             List.of("Ljava/lang/Object;", "Ljava/lang/String;"), "Ljava/lang/String;", After.EARLY_RETURN_VOID, 1),
         new Hook("Lcom/spotify/imageloader/localfileimage/LocalFileImageLoader;", "loadImage", List.of("Ljava/lang/String;"), ARTWORK, "bytes",
             List.of("Ljava/lang/String;"), "[B", After.EARLY_RETURN_OBJECT, -1),
-        new Hook("Lcom/spotify/music/SpotifyApplication;", "onCreate", List.of(), SERVER_PROCESS, "skipApplication",
+        new Hook("Lp/qb61;", "onCreate", List.of(), SERVER_PROCESS, "skipApplication",
             List.of("Landroid/content/Context;"), "Z", After.GATE, -1),
-        new Hook("Lcom/spotify/music/SpotifyApplication;", "onTrimMemory", List.of("I"), SERVER_PROCESS, "isCurrent",
+        new Hook("Lp/qb61;", "onTrimMemory", List.of("I"), SERVER_PROCESS, "isCurrent",
             List.of("Landroid/content/Context;"), "Z", After.GATE, -1),
         new Hook("Lp/ynx;", "<init>", List.of("Lp/vuk;", "Lp/h1c0;", "Z", "Ljava/util/List;"), PLAYBACK, "setPlayer",
             List.of("Ljava/lang/Object;"), "V", After.NOTHING, -1));
