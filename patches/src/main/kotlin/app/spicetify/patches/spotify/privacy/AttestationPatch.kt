@@ -12,9 +12,10 @@ import com.android.tools.smali.dexlib2.iface.instruction.ReferenceInstruction
 val attestationPatch = bytecodePatch(
     name = "Client token without Play attestation",
     description = "Acquires Spotify's client token without the Google Play attestation, " +
-        "the way devices without Play services do. Tests whether the catalog then serves " +
-        "this build content. Password login keeps refusing the app, so sign in with the " +
-        "emailed code. Experimental.",
+        "the way devices without Play services do. Known on 9.1.88 not to lift the catalog " +
+        "gate; kept because the no-attestation presentation is harmless and may matter if " +
+        "the gate's cohort changes. Password login keeps refusing the app, so sign in with " +
+        "the emailed code. Experimental.",
     default = false,
 ) {
     compatibleWith(spotifyCompatibility)
