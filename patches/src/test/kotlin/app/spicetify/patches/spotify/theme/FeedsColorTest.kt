@@ -17,7 +17,9 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 class FeedsColorTest {
-    private val color = ImmutableMethodReference("Lp/iae1;", "g", listOf("J"), "J")
+    // Built from the patch's own Color() reference, so retargeting Spotify needs no edit here.
+    private val color = ImmutableMethodReference(
+        COLOR.substringBefore("->"), COLOR.substringAfter("->").substringBefore("("), listOf("J"), "J")
     private val other = ImmutableMethodReference("Lp/other;", "g", listOf("J"), "J")
 
     private fun constant(register: Int = 2) = ImmutableInstruction51l(Opcode.CONST_WIDE, register, 0xFF121212L)
