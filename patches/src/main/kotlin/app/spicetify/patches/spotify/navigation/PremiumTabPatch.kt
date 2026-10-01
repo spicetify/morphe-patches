@@ -25,23 +25,23 @@ val premiumTabPatch = bytecodePatch(
 
     execute {
         val snapshot = Properties().apply {
-            NativeSettingsAbi::class.java.getResourceAsStream("/navigation/9.1.80.2221.properties")!!.use(::load)
+            NativeSettingsAbi::class.java.getResourceAsStream("/navigation/9.1.88.2204.properties")!!.use(::load)
         }
         for (type in snapshot.stringPropertyNames()) {
             val definition = classDefByOrNull(type)
                 ?: throw PatchException("Spotify navigation ABI changed: missing $type")
             if (NativeSettingsAbi.digest(definition) != snapshot.getProperty(type)) {
-                throw PatchException("Spotify navigation ABI changed: $type. Use the verified Spotify 9.1.80.2221 APK.")
+                throw PatchException("Spotify navigation ABI changed: $type. Use the verified Spotify 9.1.88.2204 APK.")
             }
         }
 
-        val method = mutableClassDefBy("Lp/tkd0;").methods.single {
+        val method = mutableClassDefBy("Lp/uzf0;").methods.single {
             it.name == "invoke" && it.parameterTypes.isEmpty() && it.returnType == "Ljava/lang/Object;"
         }
         val instructions = method.implementation!!.instructions.toList()
         val matches = instructions.indices.filter { index ->
             val reference = (instructions[index] as? ReferenceInstruction)?.reference as? MethodReference
-            reference?.definingClass == "Lp/f4p0;" && reference.name == "b" &&
+            reference?.definingClass == "Lp/b7s0;" && reference.name == "b" &&
                 reference.parameterTypes.isEmpty() && reference.returnType == "Z"
         }
         if (matches.size != 1 || instructions.getOrNull(matches.single() + 1)?.opcode != Opcode.MOVE_RESULT) {
