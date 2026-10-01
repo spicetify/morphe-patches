@@ -50,7 +50,7 @@ class VerifySettingsDexTest {
         for (var m : cls.getMethods()) {
             if (m.getName().equals(methodName)
                     && (!methodName.equals("<init>")
-                            || m.getParameterTypes().equals(List.of("I", "Lp/ct71;", "I")))) {
+                            || m.getParameterTypes().equals(List.of("I", "Lp/lwb1;", "B")))) {
                 var code = VerifySettingsDex.code(m);
                 mutation.accept(code);
                 var impl = m.getImplementation();
@@ -223,12 +223,12 @@ class VerifySettingsDexTest {
                                                                                     c.getFirst())
                                                                             .getReference()))));
         }
-        reject("missing append", () -> mutate("Lp/xlt;", "create", c -> c.remove(append(c))));
+        reject("missing append", () -> mutate("Lp/y3v;", "create", c -> c.remove(append(c))));
         reject(
                 "duplicate append",
                 () ->
                         mutate(
-                                "Lp/xlt;",
+                                "Lp/y3v;",
                                 "create",
                                 c -> {
                                     int n = append(c);
@@ -238,7 +238,7 @@ class VerifySettingsDexTest {
                 "wrong append receiver",
                 () ->
                         mutate(
-                                "Lp/xlt;",
+                                "Lp/y3v;",
                                 "create",
                                 c -> {
                                     int n = append(c);
@@ -247,7 +247,7 @@ class VerifySettingsDexTest {
                                             new ImmutableInstruction35c(
                                                     Opcode.INVOKE_STATIC,
                                                     2,
-                                                    6,
+                                                    5,
                                                     3,
                                                     0,
                                                     0,
@@ -260,7 +260,7 @@ class VerifySettingsDexTest {
                 "misplaced append",
                 () ->
                         mutate(
-                                "Lp/xlt;",
+                                "Lp/y3v;",
                                 "create",
                                 c -> {
                                     int n = append(c);
@@ -277,18 +277,18 @@ class VerifySettingsDexTest {
                 "wrong reserved analytics value",
                 () ->
                         mutate(
-                                "Lp/c3g0;",
+                                "Lp/jri0;",
                                 "<init>",
                                 c ->
                                         c.set(
                                                 label(c) - 2,
                                                 new ImmutableInstruction11n(
-                                                        Opcode.CONST_4, 7, 0))));
+                                                        Opcode.CONST_4, 13, 0))));
         reject(
                 "inverted analytics branch",
                 () ->
                         mutate(
-                                "Lp/c3g0;",
+                                "Lp/jri0;",
                                 "<init>",
                                 c -> {
                                     int n = label(c) - 1;
@@ -296,8 +296,8 @@ class VerifySettingsDexTest {
                                             n,
                                             new ImmutableInstruction22t(
                                                     Opcode.IF_EQ,
-                                                    5,
-                                                    7,
+                                                    11,
+                                                    13,
                                                     ((OffsetInstruction) c.get(n))
                                                             .getCodeOffset()));
                                 }));
@@ -305,7 +305,7 @@ class VerifySettingsDexTest {
                 "wrong analytics sink",
                 () ->
                         mutate(
-                                "Lp/c3g0;",
+                                "Lp/jri0;",
                                 "<init>",
                                 c -> {
                                     int n = label(c) + 1;
@@ -314,7 +314,7 @@ class VerifySettingsDexTest {
         reject(
                 "missing bridge class",
                 () -> VerifySettingsDex.classes.remove(B + "RendererProvider;"));
-        reject("missing native target", () -> VerifySettingsDex.classes.remove("Lp/xh0;"));
+        reject("missing native target", () -> VerifySettingsDex.classes.remove("Lp/ti0;"));
         reject(
                 "missing navigator method",
                 () -> {
