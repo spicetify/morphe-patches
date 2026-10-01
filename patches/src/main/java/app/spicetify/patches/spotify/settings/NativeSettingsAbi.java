@@ -11,7 +11,7 @@ import java.util.List;
 /** Snapshot of the native constructors, renderers, navigation, and DI traced for this build. */
 public final class NativeSettingsAbi {
     public static final List<String> TYPES = Arrays.asList(
-        "Lcom/spotify/music/SpotifyApplication;", "Lp/y3v;", "Lp/jto;", "Lp/bec0;",
+        "Lp/qb61;", "Lp/y3v;", "Lp/jto;", "Lp/bec0;",
         "Lp/wpo;", "Lp/xoo;", "Lp/cus;", "Lp/nz80;", "Lp/xqu0;", "Lp/ti0;",
         "Lp/oqk0;", "Lp/lzm;", "Lp/kzm;", "Lp/izm;", "Lp/jzm;", "Lp/nm80;",
         "Lkotlin/jvm/functions/Function1;", "Lp/qlj0;", "Lp/llv;", "Lp/j7d0;",

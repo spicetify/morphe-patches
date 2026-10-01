@@ -233,7 +233,7 @@ class VerifySettingsDex {
                         // return before Spotify's start-up, so the initialize hook may follow
                         // that gate instead of leading the method.
                         require(
-                                c.getType().equals("Lcom/spotify/music/SpotifyApplication;")
+                                c.getType().equals("Lp/qb61;")
                                         && m.getName().equals("onCreate")
                                         && m.getParameterTypes().isEmpty()
                                         && m.getReturnType().equals("V")

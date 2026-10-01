@@ -146,7 +146,7 @@ class VerifySettingsDexTest {
                     () -> activity(m -> m.getName().equals(name) ? null : m,
                             "Landroid/app/Activity;"));
         }
-        String app = "Lcom/spotify/music/SpotifyApplication;";
+        String app = "Lp/qb61;";
         boolean[] alreadyGated = {false};
         for (var m : original.get(app).getMethods()) {
             if (m.getName().equals("onCreate") && m.getImplementation() != null) {

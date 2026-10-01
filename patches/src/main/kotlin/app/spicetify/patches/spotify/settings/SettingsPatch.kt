@@ -79,7 +79,7 @@ internal val settingsPatch = bytecodePatch {
         """.trimIndent(), ExternalLabel("native_labels", analytics.getInstruction(switch)),
             ExternalLabel("label_sink", analytics.getInstruction(sink)))
 
-        mutableClassDefBy("Lcom/spotify/music/SpotifyApplication;").methods.single { it.name == "onCreate" }
+        mutableClassDefBy("Lp/qb61;").methods.single { it.name == "onCreate" }
             .addInstructions(0,
                 "invoke-static/range {p0 .. p0}, ${EXTENSION}PatchSettings;->initialize(Landroid/content/Context;)V")
     }
