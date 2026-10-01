@@ -36,10 +36,13 @@ val homePinsPatch = bytecodePatch(
         mutableClassDefBy("Lp/te31;").methods.single {
             it.name == "<init>" && it.parameterTypes ==
                 listOf("Ljava/lang/String;", "Ljava/util/ArrayList;", "Lp/bp30;")
-        }.addInstructions(1, """
+        }.addInstructions(
+            1,
+            """
             invoke-static {p2}, Lapp/spicetify/extension/spotify/home/HomePins;->reorder(Ljava/util/ArrayList;)Ljava/util/ArrayList;
             move-result-object p2
-        """.trimIndent())
+            """.trimIndent(),
+        )
         enableSetting("homePins")
     }
 }

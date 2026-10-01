@@ -45,8 +45,8 @@ val playerAdCardsPatch = bytecodePatch(
         val matches = instructions.indices.filter {
             (instructions[it] as? ReferenceInstruction)?.reference.toString() == getter
         }
-        if (matches.size != 1 || instructions.getOrNull(matches.single() + 1)?.opcode != Opcode.MOVE_RESULT
-            || instructions.getOrNull(matches.single() + 2)?.opcode != Opcode.IF_EQZ
+        if (matches.size != 1 || instructions.getOrNull(matches.single() + 1)?.opcode != Opcode.MOVE_RESULT ||
+            instructions.getOrNull(matches.single() + 2)?.opcode != Opcode.IF_EQZ
         ) {
             throw PatchException("Expected one Now Playing image-ad mapper in Lp/t771;->invoke.")
         }
@@ -55,18 +55,21 @@ val playerAdCardsPatch = bytecodePatch(
         if ((instructions[result + 1] as OneRegisterInstruction).registerA != register) {
             throw PatchException("Now Playing image-ad branch changed its result register.")
         }
-        method.addInstructions(result + 1, """
+        method.addInstructions(
+            result + 1,
+            """
             invoke-static/range {v$register .. v$register}, Lapp/spicetify/extension/spotify/ads/PlayerAdCards;->showImageBrandAd(Z)Z
             move-result v$register
-        """.trimIndent())
+            """.trimIndent(),
+        )
 
         val embeddedAd = mutableClassDefBy("Lp/uur;").methods.single {
-            it.name == "n" && it.returnType == "Z"
-                && it.parameterTypes == listOf("Lcom/spotify/player/model/ContextTrack;")
+            it.name == "n" && it.returnType == "Z" &&
+                it.parameterTypes == listOf("Lcom/spotify/player/model/ContextTrack;")
         }
         val first = embeddedAd.getInstruction(0)
-        if (first.opcode != Opcode.IGET_OBJECT
-            || (first as ReferenceInstruction).reference.toString() != "Lp/uur;->b:Ljava/lang/Object;"
+        if (first.opcode != Opcode.IGET_OBJECT ||
+            (first as ReferenceInstruction).reference.toString() != "Lp/uur;->b:Ljava/lang/Object;"
         ) {
             throw PatchException("Expected the Now Playing embedded-ad predicate in Lp/uur;->n.")
         }
@@ -75,13 +78,17 @@ val playerAdCardsPatch = bytecodePatch(
         if (embeddedAd.implementation!!.registerCount <= parameterRegisters) {
             throw PatchException("Lp/uur;->n has no free register for its hook.")
         }
-        embeddedAd.addInstructionsWithLabels(0, """
+        embeddedAd.addInstructionsWithLabels(
+            0,
+            """
             invoke-static {}, Lapp/spicetify/extension/spotify/ads/PlayerAdCards;->showEmbeddedAd()Z
             move-result v0
             if-nez v0, :show
             const/4 v0, 0x0
             return v0
-        """.trimIndent(), ExternalLabel("show", first))
+            """.trimIndent(),
+            ExternalLabel("show", first),
+        )
         enableSetting("hidePlayerAdCards")
     }
 }

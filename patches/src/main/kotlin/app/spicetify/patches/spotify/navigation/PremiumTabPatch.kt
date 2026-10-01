@@ -49,10 +49,13 @@ val premiumTabPatch = bytecodePatch(
         }
         val index = matches.single() + 1
         val register = (instructions[index] as OneRegisterInstruction).registerA
-        method.addInstructions(index + 1, """
+        method.addInstructions(
+            index + 1,
+            """
             invoke-static/range {v$register .. v$register}, Lapp/spicetify/extension/spotify/settings/PatchSettings;->showPremiumTab(Z)Z
             move-result v$register
-        """.trimIndent())
+            """.trimIndent(),
+        )
         enableSetting("hidePremiumTab")
     }
 }

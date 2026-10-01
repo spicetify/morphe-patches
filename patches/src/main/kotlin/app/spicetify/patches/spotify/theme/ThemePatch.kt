@@ -24,8 +24,14 @@ private const val MAP = "Lapp/spicetify/extension/spotify/theme/EncorePalette;->
 
 // Stock Encore background and accent constants that the in-app theme replaces.
 internal val paletteColors = listOf(
-    0xFF121212L, 0xFF1F1F1FL, 0xFF2A2A2AL, 0xFF191919L, 0xFF282828L,
-    0xFF1ED760L, 0xFF3BE477L, 0xFF1ABC54L,
+    0xFF121212L,
+    0xFF1F1F1FL,
+    0xFF2A2A2AL,
+    0xFF191919L,
+    0xFF282828L,
+    0xFF1ED760L,
+    0xFF3BE477L,
+    0xFF1ABC54L,
 )
 
 private val themeResourcesPatch = resourcePatch {
@@ -72,10 +78,13 @@ private fun app.morphe.patcher.patch.BytecodePatchContext.hookPalette(type: Stri
     }
     sites.sortedDescending().forEach { index ->
         val register = initializer.getInstruction<OneRegisterInstruction>(index).registerA
-        initializer.addInstructions(index + 1, """
+        initializer.addInstructions(
+            index + 1,
+            """
             invoke-static/range {v$register .. v${register + 1}}, $MAP
             move-result-wide v$register
-        """.trimIndent())
+            """.trimIndent(),
+        )
     }
 }
 
@@ -112,6 +121,7 @@ private fun colorReads(instructions: List<Instruction>, index: Int): Boolean? {
                     sawColor = true
                 }
             }
+
             else -> {
                 val wide = "WIDE" in name
                 val operands = buildList {

@@ -55,8 +55,10 @@ internal val settingsPatch = bytecodePatch {
                 (rootInstructions.getOrNull(index + 1) as? ReferenceInstruction)?.reference.toString() == "Lp/zhq;"
         }
         // Snapshot proves v5 is the unfrozen list and v0 is still the root factory here.
-        root.addInstructions(insertion,
-            "invoke-static {v5, v0}, ${EXTENSION}nativebridge/SettingsBridge;->append(Ljava/util/List;Lp/jto;)V")
+        root.addInstructions(
+            insertion,
+            "invoke-static {v5, v0}, ${EXTENSION}nativebridge/SettingsBridge;->append(Ljava/util/List;Lp/jto;)V",
+        )
 
         val analytics = mutableClassDefBy("Lp/jri0;").methods.single {
             it.name == "<init>" && it.parameterTypes == listOf("I", "Lp/lwb1;", "B")
@@ -71,17 +73,23 @@ internal val settingsPatch = bytecodePatch {
         }
         // v13's discriminator and metadata strings have been consumed. All native cases
         // use v0 for their label, including ad_partners, so leave v0 intact on mismatch.
-        analytics.addInstructionsWithLabels(switch, """
+        analytics.addInstructionsWithLabels(
+            switch,
+            """
             const/4 v13, -0x1
             if-ne v11, v13, :native_labels
             const-string v0, "spicetify_settings"
             goto/16 :label_sink
-        """.trimIndent(), ExternalLabel("native_labels", analytics.getInstruction(switch)),
-            ExternalLabel("label_sink", analytics.getInstruction(sink)))
+            """.trimIndent(),
+            ExternalLabel("native_labels", analytics.getInstruction(switch)),
+            ExternalLabel("label_sink", analytics.getInstruction(sink)),
+        )
 
         mutableClassDefBy("Lp/qb61;").methods.single { it.name == "onCreate" }
-            .addInstructions(0,
-                "invoke-static/range {p0 .. p0}, ${EXTENSION}PatchSettings;->initialize(Landroid/content/Context;)V")
+            .addInstructions(
+                0,
+                "invoke-static/range {p0 .. p0}, ${EXTENSION}PatchSettings;->initialize(Landroid/content/Context;)V",
+            )
     }
 }
 
