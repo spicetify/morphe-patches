@@ -42,11 +42,18 @@ class VerifyExtensionsDexTest {
         MISSING_PROVIDERS_TARGET, PRIVATE_PROVIDERS_TARGET, ONLY_FILTERS, MISSING_FILTER, SECOND_FILTER, FILTER_ELSEWHERE, FILTER_PASSES_THIS,
         FILTER_RESULT_DROPPED, GATE_INVERTED, GATE_SKIPS_TOO_FAR, GATE_AFTER_MAPPING, ITEMS_BEFORE_THEIR_FIELD,
         CHIPS_BEFORE_THE_BUILDER, SEARCH_CHIPS_BEFORE_SUPER, PRIVATE_FILTER, FILTER_WRONG_SIGNATURE,
-        GATE_TESTS_ANOTHER_REGISTER, GATE_RETURNS_ONE
+        GATE_TESTS_ANOTHER_REGISTER, GATE_RETURNS_ONE, BRIDGE_ONLY
     }
 
     @Test void acceptsEveryHook() throws Exception { check(Change.NONE, true); }
     @Test void acceptsNoHookWithoutThePatch() throws Exception { check(Change.NO_HOOKS, false); }
+    @Test void acceptsTheBridgeHookAloneWithHomePins() throws Exception { check(Change.BRIDGE_ONLY, false, true); }
+    @Test void acceptsEveryHookWithHomePinsToo() throws Exception { check(Change.NONE, true, true); }
+    @Test void rejectsMenuHooksWithHomePinsAlone() { assertThrows(AssertionError.class, () -> check(Change.NONE, false, true)); }
+    @Test void rejectsHomePinsWithoutTheBridgeHook() { assertThrows(AssertionError.class, () -> check(Change.NO_HOOKS, false, true)); }
+    @Test void rejectsTheBridgeHookAloneWithoutHomePins() {
+        assertThrows(AssertionError.class, () -> check(Change.BRIDGE_ONLY, false, false));
+    }
     @Test void rejectsAMissingHook() { rejects(Change.MISSING_HOOK); }
     @Test void rejectsHooksWithoutThePatch() { assertThrows(AssertionError.class, () -> check(Change.NONE, false)); }
     @Test void rejectsASecondHook() { rejects(Change.SECOND_HOOK); }
@@ -133,6 +140,10 @@ class VerifyExtensionsDexTest {
     }
 
     void check(Change change, boolean enabled) throws Exception {
+        check(change, enabled, false);
+    }
+
+    void check(Change change, boolean enabled, boolean homePins) throws Exception {
         var classes = new ArrayList<ImmutableClassDef>();
         classes.add(definition(VerifyExtensionsDex.SERVICE, service(change)));
         classes.add(definition(VerifyExtensionsDex.BRIDGE, target(VerifyExtensionsDex.BRIDGE, "onCosmos",
@@ -184,7 +195,7 @@ class VerifyExtensionsDexTest {
         var dex = Files.createTempFile("extensions-verifier-", ".dex");
         try {
             DexPool.writeTo(dex.toString(), new ImmutableDexFile(Opcodes.getDefault(), classes));
-            VerifyExtensionsDex.main(new String[]{dex.toString(), enabled ? "1" : "0"});
+            VerifyExtensionsDex.main(new String[]{dex.toString(), enabled ? "1" : "0", homePins ? "1" : "0"});
         } finally {
             Files.deleteIfExists(dex);
         }
@@ -196,7 +207,7 @@ class VerifyExtensionsDexTest {
      * filtered list back where Spotify reads it.
      */
     List<ImmutableClassDef> podcastFilters(Change change) {
-        boolean hooked = !unhooked(change);
+        boolean hooked = !unhooked(change) && change != Change.BRIDGE_ONLY;
         var classes = new ArrayList<ImmutableClassDef>();
         // P1: g0(Section), 6 registers, so this is v4 and the section v5.
         var section = new ArrayList<Instruction>();
@@ -338,7 +349,7 @@ class VerifyExtensionsDexTest {
             new ImmutableInstruction11x(Opcode.MOVE_RESULT_OBJECT, 0));
         var model = new ImmutableInstruction21c(Opcode.NEW_INSTANCE, 1, new ImmutableTypeReference(
             change == Change.TRACK_BEFORE_ANOTHER_MODEL && !artist ? "Lp/other;" : "Lp/krj;"));
-        boolean hooked = !unhooked(change) && change != Change.ONLY_FILTERS
+        boolean hooked = !unhooked(change) && change != Change.ONLY_FILTERS && change != Change.BRIDGE_ONLY
             && !(change == Change.MISSING_TRACK_HOOK && !artist);
         boolean moved = !artist && (change == Change.TRACK_BEFORE_FREEZE || change == Change.TRACK_AFTER_MODEL);
         List<Instruction> code = new ArrayList<>();
@@ -372,7 +383,7 @@ class VerifyExtensionsDexTest {
             new ImmutableInstruction11x(Opcode.MOVE_RESULT_OBJECT, change == Change.CHIPS_RESULT_DROPPED ? 0 : 1));
         var copy = new ImmutableInstruction21c(Opcode.NEW_INSTANCE, 2, new ImmutableTypeReference(
             change == Change.CHIPS_BEFORE_ANOTHER_COPY ? "Ljava/util/LinkedList;" : "Ljava/util/ArrayList;"));
-        boolean hooked = !unhooked(change) && change != Change.MISSING_CHIPS_HOOK;
+        boolean hooked = !unhooked(change) && change != Change.BRIDGE_ONLY && change != Change.MISSING_CHIPS_HOOK;
         List<Instruction> code = new ArrayList<>();
         if (hooked && change == Change.CHIPS_BEFORE_THE_REWRITE) code.addAll(hook);
         code.addAll(rewrite);
@@ -396,7 +407,7 @@ class VerifyExtensionsDexTest {
                 new ImmutableMethodReference(type, "<init>", List.of("Ljava/lang/String;"), "V")));
         var send = new ImmutableInstruction35c(Opcode.INVOKE_VIRTUAL, 2, 3, 2, 0, 0, 0,
             new ImmutableMethodReference("Lp/bay;", "invoke", List.of("Ljava/lang/Object;"), "Ljava/lang/Object;"));
-        boolean hooked = !unhooked(change) && change != Change.MISSING_TAP_HOOK;
+        boolean hooked = !unhooked(change) && change != Change.BRIDGE_ONLY && change != Change.MISSING_TAP_HOOK;
         // A branch counts code units from the if-nez: itself 2, the event 2 and 3, a nop 1, the send 3 and the
         // goto 1. TAP_SKIPS_ELSEWHERE lands on the goto instead of the return.
         boolean nop = change == Change.TAP_BEFORE_SOMETHING_ELSE;
@@ -431,7 +442,7 @@ class VerifyExtensionsDexTest {
      * SHUFFLE_IN_ANOTHER_CLASS gives the same code, still storing into Lp/xkp;'s field, to another class.
      */
     ImmutableClassDef shuffleButton(String owner, Change change) {
-        boolean hooked = !unhooked(change) && change != Change.MISSING_SHUFFLE_HOOK;
+        boolean hooked = !unhooked(change) && change != Change.BRIDGE_ONLY && change != Change.MISSING_SHUFFLE_HOOK;
         boolean moved = change == Change.SHUFFLE_IN_ANOTHER_METHOD;
         var methods = new ArrayList<ImmutableMethod>();
         methods.add(method(owner, "<init>", List.of("Landroid/content/Context;"), "V", 0x10001, 6,
@@ -466,7 +477,7 @@ class VerifyExtensionsDexTest {
      * another class.
      */
     ImmutableClassDef listMenu(String owner, Change change) {
-        boolean hooked = !unhooked(change) && change != Change.MISSING_PROVIDERS_HOOK;
+        boolean hooked = !unhooked(change) && change != Change.BRIDGE_ONLY && change != Change.MISSING_PROVIDERS_HOOK;
         boolean moved = change == Change.PROVIDERS_IN_ANOTHER_METHOD;
         var methods = new ArrayList<ImmutableMethod>();
         methods.add(method(owner, "<init>", LIST_MENU, "V", 0x10001, 6, providersStore(change, hooked && !moved)));

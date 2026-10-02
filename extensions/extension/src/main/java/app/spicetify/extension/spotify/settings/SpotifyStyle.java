@@ -19,6 +19,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.Window;
 import android.widget.Button;
+import android.widget.CheckBox;
 import android.widget.CompoundButton;
 import android.widget.EditText;
 import android.widget.FrameLayout;
@@ -332,6 +333,18 @@ final class SpotifyStyle {
         toggle.setTrackDrawable(track);
         toggle.setThumbDrawable(thumb);
         toggle.setMinHeight(dp(context, 48));
+    }
+
+    /** A checkbox row as Spotify's sheets show them. */
+    static void style(CheckBox box) {
+        Context context = box.getContext();
+        box.setTextColor(Color.WHITE);
+        box.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
+        box.setTypeface(font(context, Font.REGULAR));
+        box.setButtonTintList(new ColorStateList(
+                new int[][] {new int[] {android.R.attr.state_checked}, new int[0]}, new int[] {accent(), SUBDUED}));
+        box.setMinHeight(dp(context, 48));
+        box.setPaddingRelative(dp(context, 12), 0, 0, 0);
     }
 
     static void style(RadioButton radio) {

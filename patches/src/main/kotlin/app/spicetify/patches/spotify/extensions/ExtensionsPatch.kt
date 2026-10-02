@@ -37,11 +37,12 @@ private const val SECTION = "Lcom/spotify/casita/v1/resolved/Section;"
 private const val PROVIDED = "Lcom/spotify/casita/v1/resolved/Provided;"
 private const val LIBRARY_HEADER = "spotify/your_library/esperanto/proto/YourLibraryResponseHeader"
 
-// Every protobuf field number the extension's Esperanto.java writes or reads, as class#NAME_FIELD_NUMBER.
-// These classes keep their names and constants, so a build that renumbers a field fails here. Map
-// entries are not covered: protobuf numbers their key and value 1 and 2. Nor are enum values, since
-// obfuscated enums keep no constants: the playlist query's BoolPredicate (4, 3, 7 and 6), and Your
-// Library's Filter (PLAYLIST 2, ALBUM 0) and LinkType (TRACK 4).
+// Every protobuf field number the extension's Esperanto.java writes or reads, as class#NAME_FIELD_NUMBER,
+// for the extensions and for the Home pins picker, which reads Your Library's names and covers. These
+// classes keep their names and constants, so a build that renumbers a field fails here. Map entries are
+// not covered: protobuf numbers their key and value 1 and 2. Nor are enum values, since obfuscated enums
+// keep no constants: the playlist query's BoolPredicate (4, 3, 7 and 6), and Your Library's Filter
+// (PLAYLIST 2, ALBUM 0) and LinkType (TRACK 4).
 internal val esperantoFieldNumbers = mapOf(
     "Lcom/spotify/player/esperanto/proto/EsContextPlayerState\$ContextPlayerState;" to
         mapOf("CONTEXT_URI" to 2, "TRACK" to 7),
@@ -90,40 +91,25 @@ internal val esperantoFieldNumbers = mapOf(
     "Lspotify/your_library/esperanto/proto/YourLibraryResponseHeader;" to mapOf("IS_LOADING" to 12),
     "Lspotify/your_library/proto/YourLibraryDecoratedEntityOuterClass\$YourLibraryDecoratedEntity;" to
         mapOf("ENTITY_INFO" to 1, "ALBUM" to 2, "PLAYLIST" to 4),
-    "Lspotify/your_library/proto/YourLibraryDecoratedEntityOuterClass\$YourLibraryEntityInfo;" to mapOf("URI" to 3),
+    "Lspotify/your_library/proto/YourLibraryDecoratedEntityOuterClass\$YourLibraryEntityInfo;" to
+        mapOf("NAME" to 2, "URI" to 3, "IMAGE_URI" to 6),
     "Lspotify/your_library/proto/YourLibraryDecoratedEntityOuterClass\$YourLibraryPlaylistExtraInfo;" to
         mapOf("NUMBER_OF_ITEMS_PER_LINK_TYPE" to 12),
     "Lspotify/your_library/proto/YourLibraryDecoratedEntityOuterClass\$NumberOfItemsForLinkType;" to
         mapOf("LINK_TYPE" to 1, "NUM_ITEMS" to 2),
 ).flatMap { (type, fields) -> fields.map { (name, number) -> "$type#${name}_FIELD_NUMBER" to number } }.toMap()
 
-@Suppress("unused")
-val extensionsPatch = bytecodePatch(
-    name = "Spicetify extensions",
-    description = "Adds Android versions of Spicetify extensions to the Spicetify Marketplace's Extensions tab, " +
-        "in Spicetify settings, each off until you turn it on. Trash Bin skips the songs and artists you throw " +
-        "away from their menus. Play a random song plays one from all of Spotify or your library, from a " +
-        "Random pill on Home. Shuffle+ plays a playlist, album or Liked Songs in a truly random order when you " +
-        "long-press the shuffle button in Now Playing, choose Shuffle+ this playlist in a playlist's menu, or use " +
-        "its sheet. Hide podcasts hides podcasts and episodes on Home and in Search, and their " +
-        "filters there and in Your Library, and audiobooks unless you turn that off.",
-    default = false,
-) {
-    compatibleWith(spotifyCompatibility)
-    dependsOn(settingsPatch)
+/**
+ * H1 and the protocol check, shared by every patch that talks to Spotify's core through the player
+ * bridge: the extensions, and Home pins, whose picker reads Your Library through it. It has no name,
+ * so Manager never lists it. It leaves InstalledPatches.extensions() off, since only the extensions
+ * patch turns that on, and without it the bridge starts no extension.
+ */
+internal val playerBridgePatch = bytecodePatch {
+    dependsOn(settingsPatch) // H1 calls into the extension, which the settings patch merges
 
     execute {
-        val snapshot = Properties().apply {
-            NativeSettingsAbi::class.java.getResourceAsStream("/extensions/9.1.80.2221.properties")!!.use(::load)
-        }
-        for (type in snapshot.stringPropertyNames()) {
-            val definition = classDefByOrNull(type)
-                ?: throw PatchException("Spotify extensions ABI changed: missing $type")
-            if (NativeSettingsAbi.digest(definition) != snapshot.getProperty(type)) {
-                throw PatchException("Spotify extensions ABI changed: $type. Use the verified Spotify 9.1.80.2221 APK.")
-            }
-        }
-
+        checkSnapshot { it == COSMOS_SERVICE }
         val mismatches = fieldNumberMismatches(esperantoFieldNumbers) { key ->
             val (type, name) = key.split('#')
             val constant = classDefByOrNull(type)?.staticFields?.firstOrNull { it.name == name }
@@ -138,6 +124,29 @@ val extensionsPatch = bytecodePatch(
         }
         val index = bridgeHookIndex(constructor.implementation!!.instructions)
             ?: throw PatchException("Spotify extensions ABI changed: $COSMOS_SERVICE. Use the verified Spotify 9.1.80.2221 APK.")
+        constructor.addInstructions(index,
+            "invoke-static/range {p0 .. p0}, Lapp/spicetify/extension/spotify/extensions/PlayerBridge;->onCosmos(Ljava/lang/Object;)V")
+    }
+}
+
+@Suppress("unused")
+val extensionsPatch = bytecodePatch(
+    name = "Spicetify extensions",
+    description = "Adds Android versions of Spicetify extensions to the Spicetify Marketplace's Extensions tab, " +
+        "in Spicetify settings, each off until you turn it on. Trash Bin skips the songs and artists you throw " +
+        "away from their menus. Play a random song plays one from all of Spotify or your library, from a " +
+        "Random pill on Home. Shuffle+ plays a playlist, album or Liked Songs in a truly random order when you " +
+        "long-press the shuffle button in Now Playing, choose Shuffle+ this playlist in a playlist's menu, or use " +
+        "its sheet. Hide podcasts hides podcasts and episodes on Home and in Search, and their " +
+        "filters there and in Your Library, and audiobooks unless you turn that off.",
+    default = false,
+) {
+    compatibleWith(spotifyCompatibility)
+    dependsOn(settingsPatch, playerBridgePatch)
+
+    execute {
+        // The player bridge patch checked, then hooked, the router service before this runs.
+        checkSnapshot { it != COSMOS_SERVICE }
 
         // T1 and T2: the menu bridge gets each context menu's frozen item list, with its CollectionTrack
         // (v11) or CollectionArtist (v22), right before the menu model is built from it. v1 is dead until
@@ -202,8 +211,6 @@ val extensionsPatch = bytecodePatch(
         hookSite("Lp/b90;", "invoke", listOf("Ljava/lang/Object;", "Ljava/lang/Object;"), 268, Opcode.MOVE_RESULT_OBJECT)
         val chips = libraryChips.getInstruction<OneRegisterInstruction>(268).registerA
 
-        constructor.addInstructions(index,
-            "invoke-static/range {p0 .. p0}, Lapp/spicetify/extension/spotify/extensions/PlayerBridge;->onCosmos(Ljava/lang/Object;)V")
         trackMenu.addInstructions(1678, """
             invoke-static {v0, v11}, $MENU_BRIDGE->track(Ljava/util/List;Ljava/lang/Object;)Ljava/util/List;
             move-result-object v0
@@ -264,6 +271,20 @@ val extensionsPatch = bytecodePatch(
             move-result-object v$chips
         """.trimIndent())
         enableSetting("extensions")
+    }
+}
+
+/** Refuses to patch unless each class of the extensions snapshot that [selected] picks has its recorded digest. */
+private fun BytecodePatchContext.checkSnapshot(selected: (String) -> Boolean) {
+    val snapshot = Properties().apply {
+        NativeSettingsAbi::class.java.getResourceAsStream("/extensions/9.1.80.2221.properties")!!.use(::load)
+    }
+    for (type in snapshot.stringPropertyNames().filter(selected)) {
+        val definition = classDefByOrNull(type)
+            ?: throw PatchException("Spotify extensions ABI changed: missing $type")
+        if (NativeSettingsAbi.digest(definition) != snapshot.getProperty(type)) {
+            throw PatchException("Spotify extensions ABI changed: $type. Use the verified Spotify 9.1.80.2221 APK.")
+        }
     }
 }
 

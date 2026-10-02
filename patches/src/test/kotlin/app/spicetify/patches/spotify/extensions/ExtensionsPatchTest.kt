@@ -1,5 +1,7 @@
 package app.spicetify.patches.spotify.extensions
 
+import app.spicetify.patches.spotify.home.homePinsPatch
+import app.spicetify.patches.spotify.settings.settingsPatch
 import com.android.tools.smali.dexlib2.Opcode
 import com.android.tools.smali.dexlib2.immutable.instruction.ImmutableInstruction10x
 import com.android.tools.smali.dexlib2.immutable.instruction.ImmutableInstruction11x
@@ -50,6 +52,32 @@ class ExtensionsPatchTest {
     @Test
     fun `reports a field whose class is missing`() {
         assertEquals(listOf("A#X missing"), fieldNumberMismatches(mapOf("A#X" to 1)) { null })
+    }
+
+    @Test
+    fun `the extensions and Home pins both get the player bridge from one shared patch`() {
+        assertTrue(playerBridgePatch in extensionsPatch.dependencies)
+        assertTrue(playerBridgePatch in homePinsPatch.dependencies)
+        // H1 calls into the extension, which the settings patch merges.
+        assertTrue(settingsPatch in playerBridgePatch.dependencies)
+        assertNull(playerBridgePatch.name, "internal, so Manager never lists it")
+    }
+
+    @Test
+    fun `the protocol check covers the names and covers the Home pins picker reads`() {
+        val info = "Lspotify/your_library/proto/YourLibraryDecoratedEntityOuterClass\$YourLibraryEntityInfo;#"
+        assertEquals(mapOf("NAME" to 2, "URI" to 3, "IMAGE_URI" to 6),
+            esperantoFieldNumbers.filterKeys { it.startsWith(info) }
+                .mapKeys { it.key.removePrefix(info).removeSuffix("_FIELD_NUMBER") })
+    }
+
+    @Test
+    fun `the protocol check covers every field of the Your Library request`() {
+        val header = "Lspotify/your_library/esperanto/proto/YourLibraryRequestHeader;#"
+        assertEquals(mapOf("LENGTH" to 12, "FILTERS" to 14, "ALL_PLAYLISTS" to 17, "NUM_LINK_TYPES_IN_PLAYLISTS" to 25,
+            "IGNORE_PINNING" to 26),
+            esperantoFieldNumbers.filterKeys { it.startsWith(header) }
+                .mapKeys { it.key.removePrefix(header).removeSuffix("_FIELD_NUMBER") })
     }
 
     @Test

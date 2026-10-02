@@ -139,9 +139,11 @@ stores them, that Hide podcasts' six filters sit in their Home, Search and Your
 Library methods, take the section, result or list Spotify is about to use, and
 either return null only when the filter drops it or put the filtered list back
 where Spotify reads it, that `InstalledPatches.extensions()` is on, and that no
-hook is present and the capability is off without the patch. The patch also
-checks each field number of the player, playlist, metadata, and Your Library
-messages that the extensions read or write;
+hook is present and the capability is off without the patch. **Pin shortcuts on
+Home** brings the player bridge hook alone, because its picker reads Your
+Library through the bridge, so with `--home-pins` the checker expects that one
+hook. Both patches check each field number of the player, playlist, metadata,
+and Your Library messages that the bridge writes or reads;
 `verify-failures.py --case changed-player-protocol` checks that refusal.
 
 Check refusal paths against the same stock base APK and bundle:

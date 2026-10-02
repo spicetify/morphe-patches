@@ -287,6 +287,25 @@ public class EsperantoTest {
         assertEquals("4uLU6hMCjMI75M1A2tKUQC", Esperanto.base62(hexToBytes("93bc414a606747b2b612491ef83d5a3e")));
     }
 
+    @Test
+    public void parseYourLibraryReadsEachEntitysNameAndCover() throws IOException {
+        Wire.Writer response = new Wire.Writer();
+        response.message(2, namedEntity("spotify:playlist:p", "Road trip", "spotify:image:p", 4));
+        response.message(2, namedEntity("spotify:album:a", "Blue", null, 2));
+        response.varint(98, 200);
+
+        Esperanto.Library library = Esperanto.parseYourLibrary(response.toByteArray());
+
+        List<String> names = new ArrayList<>();
+        List<String> images = new ArrayList<>();
+        for (Esperanto.LibrarySource source : library.sources) {
+            names.add(source.name);
+            images.add(source.image);
+        }
+        assertEquals("Liked Songs first, without a name of its own", Arrays.asList(null, "Road trip", "Blue"), names);
+        assertEquals(Arrays.asList(null, "spotify:image:p", null), images);
+    }
+
     // ---- Fixtures ----
 
     /**
@@ -439,5 +458,20 @@ public class EsperantoTest {
             reader.skip();
         }
         throw new AssertionError("field " + field + " missing");
+    }
+
+    /**
+     * A {@code YourLibraryDecoratedEntity} with {@code entity_info{2 name, 3 uri, 6 image}}, without an
+     * image when it's null, then an empty member {@code kind}: 2 album, 3 artist, 4 playlist or 6 folder.
+     */
+    static Wire.Writer namedEntity(String uri, String name, String image, int kind) {
+        Wire.Writer info = new Wire.Writer();
+        info.string(2, name);
+        info.string(3, uri);
+        if (image != null) info.string(6, image);
+        Wire.Writer entity = new Wire.Writer();
+        entity.message(1, info);
+        entity.message(kind, new Wire.Writer());
+        return entity;
     }
 }

@@ -3,6 +3,7 @@ package app.spicetify.patches.spotify.home
 import app.morphe.patcher.extensions.InstructionExtensions.addInstructions
 import app.morphe.patcher.patch.PatchException
 import app.morphe.patcher.patch.bytecodePatch
+import app.spicetify.patches.spotify.extensions.playerBridgePatch
 import app.spicetify.patches.spotify.settings.NativeSettingsAbi
 import app.spicetify.patches.spotify.settings.enableSetting
 import app.spicetify.patches.spotify.settings.settingsPatch
@@ -17,7 +18,7 @@ val homePinsPatch = bytecodePatch(
     default = false,
 ) {
     compatibleWith(spotifyCompatibility)
-    dependsOn(settingsPatch)
+    dependsOn(settingsPatch, playerBridgePatch) // the picker reads Your Library through the player bridge
 
     execute {
         val snapshot = Properties().apply {

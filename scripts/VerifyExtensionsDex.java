@@ -20,7 +20,10 @@ import com.android.tools.smali.dexlib2.iface.instruction.RegisterRangeInstructio
 import com.android.tools.smali.dexlib2.iface.instruction.TwoRegisterInstruction;
 import com.android.tools.smali.dexlib2.iface.reference.MethodReference;
 
-/** Checks the Spicetify extensions patch's hooks in a patched APK, or that none are there without it. */
+/**
+ * Checks the Spicetify extensions patch's hooks in a patched APK, or that none are there without it. Pin
+ * shortcuts on Home brings the player bridge hook alone, since its picker reads Your Library through it.
+ */
 class VerifyExtensionsDex {
     static final String EXTENSIONS = "Lapp/spicetify/extension/spotify/extensions/";
     static final String BRIDGE = EXTENSIONS + "PlayerBridge;";
@@ -71,9 +74,10 @@ class VerifyExtensionsDex {
     }
 
     public static void main(String[] args) throws Exception {
-        require(args.length == 2 && List.of("0", "1").contains(args[1]),
-                "Usage: VerifyExtensionsDex.java APK EXTENSIONS_PATCH_ENABLED");
+        require(args.length == 3 && List.of("0", "1").contains(args[1]) && List.of("0", "1").contains(args[2]),
+                "Usage: VerifyExtensionsDex.java APK EXTENSIONS_PATCH_ENABLED HOME_PINS_PATCH_ENABLED");
         boolean enabled = args[1].equals("1");
+        boolean bridge = enabled || args[2].equals("1");
         Map<String, ClassDef> classes = new HashMap<>();
         var dex = DexFileFactory.loadDexContainer(new File(args[0]), Opcodes.forApi(35));
         for (var entry : dex.getDexEntryNames()) {
@@ -119,7 +123,7 @@ class VerifyExtensionsDex {
             }
         }
         int expected = enabled ? 1 : 0;
-        require(bridgeHooks == expected && trackHooks == expected && artistHooks == expected
+        require(bridgeHooks == (bridge ? 1 : 0) && trackHooks == expected && artistHooks == expected
                 && chipsHooks == expected && tapHooks == expected && shuffleHooks == expected
                 && providersHooks == expected,
                 "Unexpected hook counts: player bridge " + bridgeHooks + ", track menu " + trackHooks
@@ -130,8 +134,8 @@ class VerifyExtensionsDex {
             require(filterHooks.getOrDefault(name, 0) == expected, "Unexpected Hide podcasts hook count: " + name
                     + " " + filterHooks.getOrDefault(name, 0));
         }
+        if (bridge) requireTarget(classes, BRIDGE, "onCosmos", List.of("Ljava/lang/Object;"), "V");
         if (enabled) {
-            requireTarget(classes, BRIDGE, "onCosmos", List.of("Ljava/lang/Object;"), "V");
             requireTarget(classes, MENU_BRIDGE, "track", List.of("Ljava/util/List;", "Ljava/lang/Object;"), "Ljava/util/List;");
             requireTarget(classes, MENU_BRIDGE, "artist", List.of("Ljava/util/List;", "Ljava/lang/Object;"), "Ljava/util/List;");
             requireTarget(classes, CHIP_BRIDGE, "chips", List.of("Ljava/util/List;"), "Ljava/util/List;");

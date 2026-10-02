@@ -400,6 +400,9 @@ final class Esperanto {
     /** Where a random song from the library can come from: Liked Songs, a playlist or a saved album. */
     static final class LibrarySource {
         String uri;
+        /** Its name and cover in Your Library, for the Home pins picker, or null without one. */
+        String name;
+        String image;
         boolean album;
         /** A playlist's song count from Your Library, or -1 without one, as for albums and Liked Songs. */
         int trackCount = -1;
@@ -469,7 +472,7 @@ final class Esperanto {
         while (entity.next()) {
             switch (entity.field()) {
                 case 1:
-                    source.uri = readEntityUri(entity.message());
+                    readEntityInfo(entity.message(), source);
                     break;
                 case ENTITY_ALBUM:
                     kind = ENTITY_ALBUM;
@@ -488,16 +491,26 @@ final class Esperanto {
         found.putIfAbsent(source.uri, source);
     }
 
-    private static String readEntityUri(Wire.Reader entityInfo) throws IOException {
-        String uri = null;
+    /**
+     * {@code entity_info{2 name, 3 uri, 6 image_uri}}. The cover is as the core gives it, such as
+     * {@code spotify:image:<id>}.
+     */
+    private static void readEntityInfo(Wire.Reader entityInfo, LibrarySource source) throws IOException {
         while (entityInfo.next()) {
-            if (entityInfo.field() == 3) {
-                uri = entityInfo.string();
-            } else {
-                entityInfo.skip();
+            switch (entityInfo.field()) {
+                case 2:
+                    source.name = entityInfo.string();
+                    break;
+                case 3:
+                    source.uri = entityInfo.string();
+                    break;
+                case 6:
+                    source.image = entityInfo.string();
+                    break;
+                default:
+                    entityInfo.skip();
             }
         }
-        return uri;
     }
 
     /** The TRACK entry of {@code number_of_items_per_link_type}, or -1 when there's none. */

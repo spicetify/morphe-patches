@@ -213,7 +213,7 @@ def main():
     subprocess.run([
         args.java, "-Xmx2g", "-cp", str(args.desktop),
         str(Path(__file__).with_name("VerifyExtensionsDex.java")),
-        str(args.patched), "1" if args.extensions else "0",
+        str(args.patched), "1" if args.extensions else "0", "1" if args.home_pins else "0",
     ], check=True)
     subprocess.run([args.apksigner, "verify", str(args.patched)], check=True)
     print(json.dumps({
