@@ -2,6 +2,7 @@ package app.spicetify.extension.spotify.extensions;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 
@@ -72,6 +73,37 @@ public class ExtensionsTest {
         Extensions.startEnabled(context);
 
         assertEquals(Collections.singletonList("test_on true"), started);
+    }
+
+    @Test
+    public void trashBinPortsTheDesktopExtensionMatchedInAnyCase() {
+        assertEquals(Extensions.TRASH_BIN, Extensions.port("spicetify/cli/Extensions/trashbin.js"));
+        assertEquals(Extensions.TRASH_BIN, Extensions.port("Spicetify/CLI/extensions/TRASHBIN.js"));
+        assertNull(Extensions.port("someone/cli/Extensions/trashbin.js"));
+        assertNull(Extensions.port("spicetify/cli/Extensions/shuffle+.js"));
+        // The Marketplace reads the manifest of a repository that holds a port, in any case.
+        assertTrue(Extensions.hostsPort("Spicetify/CLI"));
+        assertFalse(Extensions.hostsPort("spicetify/cl"));
+        assertFalse(Extensions.hostsPort("someone/cli"));
+        assertEquals("Trash Bin", Extensions.title(Extensions.TRASH_BIN));
+        assertEquals("Throw songs and artists in the trash from their menus, and Spotify skips them.",
+                Extensions.description(Extensions.TRASH_BIN));
+    }
+
+    @Test
+    public void enabledListsTheExtensionsThatAreOn() {
+        Extensions.setOn(context, Extensions.TRASH_BIN, false);
+        assertEquals(Collections.emptyList(), Extensions.enabled(context));
+        Extensions.setOn(context, Extensions.TRASH_BIN, true);
+        assertEquals(Collections.singletonList(Extensions.TRASH_BIN), Extensions.enabled(context));
+        Extensions.setOn(context, Extensions.TRASH_BIN, false);
+    }
+
+    @Test
+    public void latestStatusSaysOnUntilAnExtensionReportsALine() {
+        assertEquals("On", Extensions.latestStatus("test_quiet"));
+        Extensions.status("test_reporting", "Skipped spotify:track:a");
+        assertEquals("Skipped spotify:track:a", Extensions.latestStatus("test_reporting"));
     }
 
     @Test

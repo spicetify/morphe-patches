@@ -586,6 +586,16 @@ public class PlayerBridgeTest {
         return listener;
     }
 
+    /**
+     * Attaches a fresh router that answers nothing, one Spotify has destroyed when {@code destroyed};
+     * for tests outside this package, since the bridge is process-wide.
+     */
+    public static void attachRouter(boolean destroyed) {
+        FakeRouter fresh = new FakeRouter();
+        fresh.destroyed = destroyed;
+        PlayerBridge.attach(fresh);
+    }
+
     /** Runs {@code task} on the bridge thread, after everything posted before it, and returns its result. */
     static <T> T onBridge(Callable<T> task) throws Exception {
         FutureTask<T> run = new FutureTask<>(task);

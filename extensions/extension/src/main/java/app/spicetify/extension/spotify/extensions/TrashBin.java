@@ -19,12 +19,13 @@ import org.json.JSONObject;
  * one JSON string per category, in the desktop export's {@code {"songs":{uri:true},"artists":{uri:true}}}
  * shape, so an export moves between the two without conversion.
  * <p>
- * Threading: {@link #onState} arrives on the player bridge thread, and menu taps on the UI thread.
+ * Threading: {@link #onState} arrives on the player bridge thread, and menu and settings taps on
+ * the UI thread.
  * {@link #SONGS} and {@link #ARTISTS} are concurrent sets, so both sides read and write them
  * without extra locking, and {@link #handle} is the one synchronized gate that decides whether a
  * track gets skipped.
  */
-final class TrashBin {
+public final class TrashBin {
     private static final String PREFERENCES = "spicetify_trash";
     private static final String SONGS_KEY = "songs";
     private static final String ARTISTS_KEY = "artists";
@@ -104,7 +105,19 @@ final class TrashBin {
         save(context, key, set);
     }
 
-    static void clear(Context context) {
+    /** How many songs are in the trash. */
+    public static int songCount(Context context) {
+        ensureLoaded(context);
+        return SONGS.size();
+    }
+
+    /** How many artists are in the trash. */
+    public static int artistCount(Context context) {
+        ensureLoaded(context);
+        return ARTISTS.size();
+    }
+
+    public static void clear(Context context) {
         ensureLoaded(context);
         SONGS.clear();
         ARTISTS.clear();
@@ -114,7 +127,7 @@ final class TrashBin {
 
     // ---- Import and export ----
 
-    static String exportJson() {
+    public static String exportJson() {
         ensureLoaded(Extensions.appContext());
         try {
             JSONObject root = new JSONObject();
@@ -132,7 +145,7 @@ final class TrashBin {
      * true; a URI set to false isn't trashed, as on desktop. Anything else throws before the trash
      * changes.
      */
-    static void importJson(Context context, String json) throws JSONException {
+    public static void importJson(Context context, String json) throws JSONException {
         JSONObject root = new JSONObject(json);
         if (!root.has(SONGS_KEY) && !root.has(ARTISTS_KEY)) throw new JSONException("Neither songs nor artists");
         Set<String> songs = trashed(root, SONGS_KEY);

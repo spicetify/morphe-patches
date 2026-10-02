@@ -20,7 +20,8 @@ class VerifyExtensionsDexTest {
         NONE, NO_HOOKS, MISSING_HOOK, SECOND_HOOK, WRONG_CALLER, WRONG_REGISTER, BEFORE_SCHEDULING, PRIVATE_TARGET,
         MISSING_TRACK_HOOK, TRACK_PASSES_ANOTHER_ROW, TRACK_RESULT_DROPPED, TRACK_AFTER_MODEL, TRACK_BEFORE_FREEZE,
         TRACK_AFTER_ANOTHER_LIST, TRACK_BEFORE_ANOTHER_MODEL, TRACK_IN_ANOTHER_CLASS, ARTIST_WITHOUT_ITS_ROW,
-        ARTIST_FROM_ANOTHER_ROW, ARTIST_IN_TRACK_MENU, MISSING_MENU_TARGET, PRIVATE_TRACK_TARGET
+        ARTIST_FROM_ANOTHER_ROW, ARTIST_IN_TRACK_MENU, MISSING_MENU_TARGET, PRIVATE_TRACK_TARGET, CAPABILITY_OFF,
+        CAPABILITY_ON
     }
 
     @Test void acceptsEveryHook() throws Exception { check(Change.NONE, true); }
@@ -45,6 +46,8 @@ class VerifyExtensionsDexTest {
     @Test void rejectsAnArtistHookInTheTrackMenu() { rejects(Change.ARTIST_IN_TRACK_MENU); }
     @Test void rejectsAMissingMenuBridge() { rejects(Change.MISSING_MENU_TARGET); }
     @Test void rejectsAPrivateMenuTarget() { rejects(Change.PRIVATE_TRACK_TARGET); }
+    @Test void rejectsTheCapabilityOffWithThePatch() { rejects(Change.CAPABILITY_OFF); }
+    @Test void rejectsTheCapabilityOnWithoutThePatch() { assertThrows(AssertionError.class, () -> check(Change.CAPABILITY_ON, false)); }
 
     void rejects(Change change) {
         assertThrows(AssertionError.class, () -> check(change, true));
@@ -65,6 +68,9 @@ class VerifyExtensionsDexTest {
                     change == Change.PRIVATE_TRACK_TARGET ? 0x0a : 0x09),
                 target(MENUS, "artist", List.of("Ljava/util/List;", "Ljava/lang/Object;"), "Ljava/util/List;", 0x09))));
         }
+        boolean capability = change == Change.CAPABILITY_ON || enabled && change != Change.CAPABILITY_OFF;
+        classes.add(definition(VerifyExtensionsDex.INSTALLED, method(VerifyExtensionsDex.INSTALLED, "extensions", List.of(), "Z",
+            0x09, 1, List.of(new ImmutableInstruction11n(Opcode.CONST_4, 0, capability ? 1 : 0), new ImmutableInstruction11x(Opcode.RETURN, 0)))));
         if (change == Change.SECOND_HOOK || change == Change.WRONG_CALLER) {
             classes.add(definition("Lp/other;", method("Lp/other;", "run", List.of(), "V", 0x09, 4,
                 List.of(schedule(), bridgeHook(1), new ImmutableInstruction10x(Opcode.RETURN_VOID)))));
@@ -80,7 +86,7 @@ class VerifyExtensionsDexTest {
 
     /** SharedCosmosRouterService's constructor: 4 registers, so p0 is v1. */
     ImmutableMethod service(Change change) {
-        boolean withoutHook = change == Change.NO_HOOKS || change == Change.MISSING_HOOK || change == Change.WRONG_CALLER;
+        boolean withoutHook = unhooked(change) || change == Change.MISSING_HOOK || change == Change.WRONG_CALLER;
         List<Instruction> code = new ArrayList<>();
         if (change == Change.BEFORE_SCHEDULING) code.add(bridgeHook(1));
         code.add(schedule());
@@ -112,7 +118,7 @@ class VerifyExtensionsDexTest {
             new ImmutableInstruction11x(Opcode.MOVE_RESULT_OBJECT, 0));
         var model = new ImmutableInstruction21c(Opcode.NEW_INSTANCE, 1, new ImmutableTypeReference(
             change == Change.TRACK_BEFORE_ANOTHER_MODEL && !artist ? "Lp/other;" : "Lp/krj;"));
-        boolean hooked = change != Change.NO_HOOKS && !(change == Change.MISSING_TRACK_HOOK && !artist);
+        boolean hooked = !unhooked(change) && !(change == Change.MISSING_TRACK_HOOK && !artist);
         boolean moved = !artist && (change == Change.TRACK_BEFORE_FREEZE || change == Change.TRACK_AFTER_MODEL);
         List<Instruction> code = new ArrayList<>();
         if (hooked && moved && change == Change.TRACK_BEFORE_FREEZE) code.addAll(hook);
@@ -122,6 +128,11 @@ class VerifyExtensionsDexTest {
         if (hooked && moved && change == Change.TRACK_AFTER_MODEL) code.addAll(hook);
         code.add(new ImmutableInstruction11x(Opcode.RETURN_OBJECT, 0));
         return method(owner, "apply", List.of("Ljava/lang/Object;"), "Ljava/lang/Object;", 0x01, 24, code);
+    }
+
+    /** A build without the patch: no hooks, whatever its capability says. */
+    static boolean unhooked(Change change) {
+        return change == Change.NO_HOOKS || change == Change.CAPABILITY_ON;
     }
 
     ImmutableInstruction3rc bridgeHook(int register) {

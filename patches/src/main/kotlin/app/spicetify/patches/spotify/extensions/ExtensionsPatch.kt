@@ -6,6 +6,7 @@ import app.morphe.patcher.patch.PatchException
 import app.morphe.patcher.patch.bytecodePatch
 import app.morphe.patcher.util.proxy.mutableTypes.MutableMethod
 import app.spicetify.patches.spotify.settings.NativeSettingsAbi
+import app.spicetify.patches.spotify.settings.enableSetting
 import app.spicetify.patches.spotify.settings.settingsPatch
 import app.spicetify.patches.spotify.spotifyCompatibility
 import com.android.tools.smali.dexlib2.Opcode
@@ -36,8 +37,9 @@ internal val esperantoFieldNumbers = mapOf(
 @Suppress("unused")
 val extensionsPatch = bytecodePatch(
     name = "Spicetify extensions",
-    description = "Adds Android versions of Spicetify extensions, each off until you turn it on. " +
-        "Trash Bin skips the songs and artists you throw away from their menus.",
+    description = "Adds Android versions of Spicetify extensions to the Spicetify Marketplace's Extensions tab, " +
+        "in Spicetify settings, each off until you turn it on. Trash Bin skips the songs and artists you throw " +
+        "away from their menus.",
     default = false,
 ) {
     compatibleWith(spotifyCompatibility)
@@ -87,6 +89,7 @@ val extensionsPatch = bytecodePatch(
             invoke-static {v0, v1}, $MENU_BRIDGE->artist(Ljava/util/List;Ljava/lang/Object;)Ljava/util/List;
             move-result-object v0
         """.trimIndent())
+        enableSetting("extensions")
     }
 }
 

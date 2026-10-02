@@ -446,7 +446,7 @@ final class SpotifyStyle {
         return back;
     }
 
-    private static LinearLayout row(Context context) {
+    static LinearLayout row(Context context) {
         LinearLayout row = new LinearLayout(context);
         row.setOrientation(LinearLayout.HORIZONTAL);
         row.setGravity(Gravity.CENTER_VERTICAL);

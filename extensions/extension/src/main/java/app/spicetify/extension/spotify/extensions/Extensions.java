@@ -4,16 +4,27 @@ import android.content.Context;
 import android.content.SharedPreferences;
 import android.util.Log;
 import app.spicetify.extension.spotify.settings.PatchSettings;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * The Android side of Spicetify's desktop extensions: ids stable across ports, each extension's
- * switch and the listener that hears it, and each one's latest status.
+ * The Android side of Spicetify's desktop extensions: ids stable across ports, the desktop
+ * extension each one ports, each one's switch and the listener that hears it, and each one's
+ * latest status.
  */
 public final class Extensions {
     public static final String TRASH_BIN = "trash_bin";
 
+    /**
+     * Each extension ported to Android: its id, the desktop extension it ports as owner/repo/main,
+     * its name, and what it does on Android. Spicetify settings lists them in this order.
+     */
+    private static final String[][] PORTS = {
+        {TRASH_BIN, "spicetify/cli/Extensions/trashbin.js", "Trash Bin",
+                "Throw songs and artists in the trash from their menus, and Spotify skips them."},
+    };
     private static final String PREFERENCES = "spicetify_extensions";
     private static final Map<String, SwitchListener> SWITCHES = new ConcurrentHashMap<>();
     private static final Map<String, String> STATUS = new ConcurrentHashMap<>();
@@ -39,6 +50,41 @@ public final class Extensions {
     }
 
     private Extensions() {}
+
+    /** The id of the Android port of desktop extension {@code source}, owner/repo/main in any case, or null. */
+    public static String port(String source) {
+        for (String[] port : PORTS) if (port[1].equalsIgnoreCase(source)) return port[0];
+        return null;
+    }
+
+    /** Whether repository {@code ownerRepo}, owner/repo in any case, holds a desktop extension ported here. */
+    public static boolean hostsPort(String ownerRepo) {
+        String prefix = ownerRepo + "/";
+        for (String[] port : PORTS) if (port[1].regionMatches(true, 0, prefix, 0, prefix.length())) return true;
+        return false;
+    }
+
+    /** Extension {@code id}'s name on Android. */
+    public static String title(String id) {
+        return find(id)[2];
+    }
+
+    /** What extension {@code id} does on Android. */
+    public static String description(String id) {
+        return find(id)[3];
+    }
+
+    private static String[] find(String id) {
+        for (String[] port : PORTS) if (port[0].equals(id)) return port;
+        throw new IllegalArgumentException("No extension " + id);
+    }
+
+    /** The extensions that are on, in the order Spicetify settings lists them. */
+    public static List<String> enabled(Context context) {
+        List<String> on = new ArrayList<>();
+        for (String[] port : PORTS) if (isOn(context, port[0])) on.add(port[0]);
+        return on;
+    }
 
     /** Whether the user turned extension {@code id} on; every extension starts off. */
     public static boolean isOn(Context context, String id) {
@@ -82,10 +128,10 @@ public final class Extensions {
         STATUS.put(id, line);
     }
 
-    /** Extension {@code id}'s latest status, or "on" until it reports one. */
-    static String latestStatus(String id) {
+    /** Extension {@code id}'s latest status, or "On" until it reports one. */
+    public static String latestStatus(String id) {
         String last = STATUS.get(id);
-        return last == null ? "on" : last;
+        return last == null ? "On" : last;
     }
 
     /**

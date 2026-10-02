@@ -34,7 +34,7 @@ Pixel 8 with a 35,000-track Jellyfin library.
 | Clean sharing links | Enabled | Removes `si`, `pi`, and known `utm_*` parameters from `open.spotify.com` links. Preserves timestamps, context, other parameters, and fragments. |
 | Theme colors | Disabled | Choose a theme such as OLED, Midnight, or Nord in Spicetify settings, apply a community theme's colors and background image from the Spicetify Marketplace, paste a desktop Spicetify theme's `color.ini`, or pick background, surface, and accent colors yourself, then restart Spotify when it offers. Requires Android 11 or later. Hardcoded colors and some screens keep Spotify's colors. |
 | Pin shortcuts on Home | Disabled | Moves selected native Home shortcuts first. Configure pins in Spotify's Spicetify settings, then restart Spotify. |
-| Spicetify extensions | Disabled | Android versions of Spicetify extensions, each off until you turn it on. **Trash Bin**: throw a song or an artist away from its **...** menu, and Spotify skips that song, or the artist's songs, whenever they play, as the desktop extension does. The trash list exports and imports in the desktop format. |
+| Spicetify extensions | Disabled | Android versions of Spicetify extensions, each off until you turn it on in the Spicetify Marketplace's **Extensions** tab. **Trash Bin**: throw a song or an artist away from its **...** menu, and Spotify skips that song, or the artist's songs, whenever they play, as the desktop extension does. The trash list exports and imports in the desktop format. |
 | Local files from a server | Disabled | Streams an HTTPS WebDAV folder or Jellyfin library into Local Files and Your Library, with its own filter chip. Requires Android 8 or later, byte-range support, and Spotify's Local audio files setting; configure the server in Spotify's Spicetify settings. Not available for root mount installs, because its track provider and server browser must be in the manifest. |
 
 <!-- PATCHES_START EXPANDED -->
@@ -134,6 +134,15 @@ behind Spotify's main screen, whose pages turn see-through over it, and
 scheme and an accent key such as Catppuccin's `mauve`. Settings that Spotify
 reads at startup, such as themes, offer to restart Spotify for you. Home pins and server files have their own
 controls here when installed.
+
+With **Spicetify extensions** installed, the Spicetify page lists the
+extensions that are on, each with its latest status. Tap one for its switch
+and its own controls, such as Trash Bin's **Export**, **Import** and
+**Clear**. **Spicetify Marketplace** there opens the Marketplace on its
+**Extensions** tab, which only this patch adds: an extension with an Android
+version comes first, with a switch, and any other says **Desktop only** and
+opens its GitHub page. Without Theme colors, the **Themes** tab says what its
+themes need.
 
 For server files, enter an HTTPS WebDAV folder URL and credentials in
 **Spicetify**, turn on **Use server files**, then select **Save and scan**.

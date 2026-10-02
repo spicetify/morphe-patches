@@ -130,7 +130,8 @@ Add `--extensions` for **Spicetify extensions**. Its checker verifies that
 Spotify's `SharedCosmosRouterService` hands itself to the player bridge right
 after its native router starts scheduling, that the song and artist menus pass
 their frozen item lists and rows through the menu bridge right before building
-the menu, and that no hook is present without the patch. The patch also
+the menu, that `InstalledPatches.extensions()` is on, and that no hook is
+present and the capability is off without the patch. The patch also
 checks each player message field number the bridge reads;
 `verify-failures.py --case changed-player-protocol` checks that refusal.
 

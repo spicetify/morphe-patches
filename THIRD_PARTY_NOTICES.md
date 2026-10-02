@@ -75,9 +75,12 @@ The Marketplace page follows the discovery, blacklist and manifest rules of
 at `ec6f772891bad4bf08b645447c2ade6b06c4f991` (MIT), reimplemented in Java.
 No code or assets are copied. The blacklist is fetched at runtime from that
 repository's `main` branch. Local changes: only themes with a color scheme
-Spotify can use are listed, most stars first; only the first 50 items of a
-manifest are read, and long names and descriptions are cut short; and the list
-is cached for six hours.
+Spotify can use are listed, most stars first; with the extensions patch,
+extensions are listed on a tab of their own, those with an Android version
+first, and an extension repository with no Android version is listed from its
+search result, by its name and description, without its manifest; only the
+first 50 items of a manifest are read, and long names and descriptions are cut
+short; and the list is cached for six hours.
 
 ## Galaxy
 

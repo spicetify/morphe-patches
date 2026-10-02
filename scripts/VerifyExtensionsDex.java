@@ -11,6 +11,7 @@ import com.android.tools.smali.dexlib2.iface.ClassDef;
 import com.android.tools.smali.dexlib2.iface.Method;
 import com.android.tools.smali.dexlib2.iface.instruction.FiveRegisterInstruction;
 import com.android.tools.smali.dexlib2.iface.instruction.Instruction;
+import com.android.tools.smali.dexlib2.iface.instruction.NarrowLiteralInstruction;
 import com.android.tools.smali.dexlib2.iface.instruction.OneRegisterInstruction;
 import com.android.tools.smali.dexlib2.iface.instruction.ReferenceInstruction;
 import com.android.tools.smali.dexlib2.iface.instruction.RegisterRangeInstruction;
@@ -23,6 +24,7 @@ class VerifyExtensionsDex {
     static final String BRIDGE = EXTENSIONS + "PlayerBridge;";
     static final String SERVICE = "Lcom/spotify/cosmos/sharedcosmosrouterservice/SharedCosmosRouterService;";
     static final String MENU_BRIDGE = EXTENSIONS + "nativebridge/MenuBridge;";
+    static final String INSTALLED = "Lapp/spicetify/extension/spotify/settings/InstalledPatches;";
 
     static void require(boolean condition, String message) {
         if (!condition) throw new AssertionError(message);
@@ -72,6 +74,7 @@ class VerifyExtensionsDex {
         require(bridgeHooks == expected && trackHooks == expected && artistHooks == expected,
                 "Unexpected hook counts: player bridge " + bridgeHooks + ", track menu " + trackHooks
                         + ", artist menu " + artistHooks);
+        verifyCapability(classes.get(INSTALLED), enabled);
         if (enabled) {
             requireTarget(classes, BRIDGE, "onCosmos", List.of("Ljava/lang/Object;"), "V");
             requireTarget(classes, MENU_BRIDGE, "track", List.of("Ljava/util/List;", "Ljava/lang/Object;"), "Ljava/util/List;");
@@ -79,6 +82,28 @@ class VerifyExtensionsDex {
         }
         System.out.println("Spicetify extensions verified: " + (bridgeHooks + trackHooks + artistHooks)
                 + " hook(s), selected=" + enabled);
+    }
+
+    /**
+     * The extension's InstalledPatches.extensions() answers whether the patch is in: true only with
+     * it. An APK without the settings patch has no extension classes at all.
+     */
+    static void verifyCapability(ClassDef installed, boolean enabled) {
+        Method capability = null;
+        if (installed != null) for (var m : installed.getMethods()) {
+            if (m.getName().equals("extensions") && m.getParameterTypes().isEmpty() && m.getReturnType().equals("Z")) capability = m;
+        }
+        if (capability == null) {
+            require(!enabled, "Missing the extensions capability");
+            return;
+        }
+        var code = code(capability);
+        require(AccessFlags.PUBLIC.isSet(capability.getAccessFlags()) && AccessFlags.STATIC.isSet(capability.getAccessFlags())
+                && code.size() == 2 && code.get(0).getOpcode() == Opcode.CONST_4
+                && ((NarrowLiteralInstruction) code.get(0)).getNarrowLiteral() == (enabled ? 1 : 0)
+                && code.get(1).getOpcode() == Opcode.RETURN
+                && ((OneRegisterInstruction) code.get(0)).getRegisterA() == ((OneRegisterInstruction) code.get(1)).getRegisterA(),
+                "Extensions capability does not match patch selection");
     }
 
     /** Spotify calls each hook's target, so it must be a public static method with a body. */

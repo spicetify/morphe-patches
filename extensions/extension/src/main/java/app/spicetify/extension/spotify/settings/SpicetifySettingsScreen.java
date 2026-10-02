@@ -33,6 +33,8 @@ public final class SpicetifySettingsScreen extends ContextThemeWrapper {
     public static final String PAGE_APPEARANCE = "appearance";
     public static final String PAGE_SERVER = "server";
     public static final String PAGE_MARKETPLACE = "marketplace";
+    /** The Marketplace, opened on its Extensions tab. */
+    public static final String PAGE_EXTENSIONS = "extensions";
     private static final String OPEN_PAGES = "app.spicetify.extension.spotify.settings.pages";
     private static final List<SpicetifySettingsScreen> shown = new ArrayList<>();
     private static Application tracked;
@@ -41,6 +43,8 @@ public final class SpicetifySettingsScreen extends ContextThemeWrapper {
     private final String page;
     private final Dialog dialog;
     private final LinearLayout content;
+    /** This is the root page, which a null or unknown page opens. */
+    private boolean root;
     private View restartBar;
 
     public static void open(Activity activity) {
@@ -79,17 +83,19 @@ public final class SpicetifySettingsScreen extends ContextThemeWrapper {
         } else if (PAGE_SERVER.equals(page)) {
             title = "Server files";
             buildServer(content);
-        } else if (PAGE_MARKETPLACE.equals(page)) {
+        } else if (PAGE_MARKETPLACE.equals(page) || PAGE_EXTENSIONS.equals(page)) {
             title = "Spicetify Marketplace";
             buildMarketplace(content);
         } else {
             title = "Spicetify";
+            root = true;
             buildRoot(content);
         }
         dialog.setTitle(title);
         restartBar = SpotifyStyle.restartBar(this, view -> SpotifyRestart.restart(this));
         // The Marketplace's list scrolls on its own.
-        dialog.setContentView(SpotifyStyle.screen(dialog, title, content, restartBar, !PAGE_MARKETPLACE.equals(page)));
+        dialog.setContentView(SpotifyStyle.screen(dialog, title, content, restartBar,
+                !PAGE_MARKETPLACE.equals(page) && !PAGE_EXTENSIONS.equals(page)));
         refreshRestartBar();
         dialog.setOnDismissListener(closed -> {
             shown.remove(this);
@@ -138,12 +144,19 @@ public final class SpicetifySettingsScreen extends ContextThemeWrapper {
         if (restartBar != null) restartBar.setVisibility(PatchSettings.restartRequired() ? View.VISIBLE : View.GONE);
     }
 
-    /** The restart bar, and on Appearance the theme in use, which the Marketplace above it can change. */
-    private void refresh() {
+    /**
+     * The restart bar, on Appearance the theme in use, which the Marketplace above it can change, and
+     * on the root page the extensions that are on, which the Marketplace and their sheets can change.
+     */
+    void refresh() {
         refreshRestartBar();
-        if (!PAGE_APPEARANCE.equals(page)) return;
-        content.removeAllViews();
-        buildAppearance(content);
+        if (PAGE_APPEARANCE.equals(page)) {
+            content.removeAllViews();
+            buildAppearance(content);
+        } else if (root) {
+            content.removeAllViews();
+            buildRoot(content);
+        }
     }
 
     /** Opens another page above this one. */
@@ -168,6 +181,10 @@ public final class SpicetifySettingsScreen extends ContextThemeWrapper {
                 InstalledPatches.themeColors() ? List.of("Theme colors") : List.of(), PAGE_APPEARANCE);
         any |= category(content, "encore_icon_folder_24", "Server files",
                 InstalledPatches.serverFiles() ? List.of("WebDAV", "Jellyfin") : List.of(), PAGE_SERVER);
+        if (InstalledPatches.extensions()) {
+            any = true;
+            ExtensionSettings.build(this, content);
+        }
         if (!any) {
             TextView empty = SpotifyStyle.body(this, "No configurable Spicetify patches are installed.");
             empty.setPadding(SpotifyStyle.dp(this, 16), SpotifyStyle.dp(this, 16), SpotifyStyle.dp(this, 16), 0);
@@ -239,7 +256,8 @@ public final class SpicetifySettingsScreen extends ContextThemeWrapper {
     }
 
     private void buildMarketplace(LinearLayout content) {
-        content.addView(new MarketplaceSettings(this), new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1));
+        content.addView(new MarketplaceSettings(this, PAGE_EXTENSIONS.equals(page)),
+                new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1));
     }
 
     private void chooseHomePins() {
