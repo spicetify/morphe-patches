@@ -20,6 +20,9 @@ class VerifyExtensionsDexTest {
     static final String SHUFFLE = VerifyExtensionsDex.NOW_PLAYING_SHUFFLE;
     static final String PROVIDER = VerifyExtensionsDex.PLAYLIST_MENU_PROVIDER;
     static final List<String> LIST_MENU = List.of("Lp/y3w0;", "Lp/vz1;", "Ljava/util/List;", "Ljava/util/List;", "Lp/a94;");
+    static final String FILTERS = VerifyExtensionsDex.HIDE_PODCASTS;
+    static final String OBJECT = "Ljava/lang/Object;", LIST = "Ljava/util/List;", ARRAY_LIST = "Ljava/util/ArrayList;";
+    static final String CHIP_BUILDER = "Lp/k770;";
 
     enum Change {
         NONE, NO_HOOKS, MISSING_HOOK, SECOND_HOOK, WRONG_CALLER, WRONG_REGISTER, BEFORE_SCHEDULING, PRIVATE_TARGET,
@@ -36,7 +39,10 @@ class VerifyExtensionsDexTest {
         SHUFFLE_BEFORE_SOMETHING_ELSE, MISSING_SHUFFLE_TARGET, PRIVATE_SHUFFLE_TARGET,
         MISSING_PROVIDERS_HOOK, PROVIDERS_IN_ANOTHER_CLASS, PROVIDERS_IN_ANOTHER_METHOD, PROVIDERS_PASS_ANOTHER_REGISTER,
         PROVIDERS_RESULT_DROPPED, PROVIDERS_AFTER_THE_STORE, PROVIDERS_BEFORE_ANOTHER_STORE, PROVIDERS_STORED_ELSEWHERE,
-        MISSING_PROVIDERS_TARGET, PRIVATE_PROVIDERS_TARGET
+        MISSING_PROVIDERS_TARGET, PRIVATE_PROVIDERS_TARGET, ONLY_FILTERS, MISSING_FILTER, SECOND_FILTER, FILTER_ELSEWHERE, FILTER_PASSES_THIS,
+        FILTER_RESULT_DROPPED, GATE_INVERTED, GATE_SKIPS_TOO_FAR, GATE_AFTER_MAPPING, ITEMS_BEFORE_THEIR_FIELD,
+        CHIPS_BEFORE_THE_BUILDER, SEARCH_CHIPS_BEFORE_SUPER, PRIVATE_FILTER, FILTER_WRONG_SIGNATURE,
+        GATE_TESTS_ANOTHER_REGISTER, GATE_RETURNS_ONE
     }
 
     @Test void acceptsEveryHook() throws Exception { check(Change.NONE, true); }
@@ -103,6 +109,24 @@ class VerifyExtensionsDexTest {
     @Test void rejectsAPlaylistMenuHookWhoseProvidersGoElsewhere() { rejects(Change.PROVIDERS_STORED_ELSEWHERE); }
     @Test void rejectsAMissingPlaylistMenuProvider() { rejects(Change.MISSING_PROVIDERS_TARGET); }
     @Test void rejectsAPrivatePlaylistMenuTarget() { rejects(Change.PRIVATE_PROVIDERS_TARGET); }
+    @Test void rejectsAPodcastFilterWithoutThePatch() {
+        assertThrows(AssertionError.class, () -> check(Change.ONLY_FILTERS, false));
+    }
+    @Test void rejectsAMissingPodcastFilter() { rejects(Change.MISSING_FILTER); }
+    @Test void rejectsASecondPodcastFilter() { rejects(Change.SECOND_FILTER); }
+    @Test void rejectsAPodcastFilterInAnotherMethod() { rejects(Change.FILTER_ELSEWHERE); }
+    @Test void rejectsAPodcastFilterThatPassesAnotherRegister() { rejects(Change.FILTER_PASSES_THIS); }
+    @Test void rejectsAPodcastFilterWhoseResultIsDropped() { rejects(Change.FILTER_RESULT_DROPPED); }
+    @Test void rejectsAGateThatDropsWhatItShouldKeep() { rejects(Change.GATE_INVERTED); }
+    @Test void rejectsAGateThatSkipsSpotifysCode() { rejects(Change.GATE_SKIPS_TOO_FAR); }
+    @Test void rejectsAGateAfterSpotifyMapsTheSection() { rejects(Change.GATE_AFTER_MAPPING); }
+    @Test void rejectsAShelfFilterBeforeItsItems() { rejects(Change.ITEMS_BEFORE_THEIR_FIELD); }
+    @Test void rejectsALibraryChipFilterBeforeTheChipsAreBuilt() { rejects(Change.CHIPS_BEFORE_THE_BUILDER); }
+    @Test void rejectsASearchChipFilterBeforeTheSuperConstructor() { rejects(Change.SEARCH_CHIPS_BEFORE_SUPER); }
+    @Test void rejectsAPrivatePodcastFilter() { rejects(Change.PRIVATE_FILTER); }
+    @Test void rejectsAPodcastFilterCalledWithAnotherSignature() { rejects(Change.FILTER_WRONG_SIGNATURE); }
+    @Test void rejectsAGateThatTestsAnotherRegister() { rejects(Change.GATE_TESTS_ANOTHER_REGISTER); }
+    @Test void rejectsAGateThatReturnsSomethingButNull() { rejects(Change.GATE_RETURNS_ONE); }
 
     void rejects(Change change) {
         assertThrows(AssertionError.class, () -> check(change, true));
@@ -152,6 +176,7 @@ class VerifyExtensionsDexTest {
             classes.add(definition(PROVIDER, target(PROVIDER, "providers", List.of("Ljava/util/List;"), "Ljava/util/List;",
                 change == Change.PRIVATE_PROVIDERS_TARGET ? 0x0a : 0x09)));
         }
+        classes.addAll(podcastFilters(change));
         if (change == Change.SECOND_HOOK || change == Change.WRONG_CALLER) {
             classes.add(definition("Lp/other;", method("Lp/other;", "run", List.of(), "V", 0x09, 4,
                 List.of(schedule(), bridgeHook(1), new ImmutableInstruction10x(Opcode.RETURN_VOID)))));
@@ -165,9 +190,123 @@ class VerifyExtensionsDexTest {
         }
     }
 
+    /**
+     * Hide podcasts' six hooks, each in a stand-in for the Spotify method it sits in, and the filters they
+     * call. P1 and P4 come first and return null for a dropped section or result; the others put the
+     * filtered list back where Spotify reads it.
+     */
+    List<ImmutableClassDef> podcastFilters(Change change) {
+        boolean hooked = !unhooked(change);
+        var classes = new ArrayList<ImmutableClassDef>();
+        // P1: g0(Section), 6 registers, so this is v4 and the section v5.
+        var section = new ArrayList<Instruction>();
+        var mapping = List.of(new ImmutableInstruction35c(Opcode.INVOKE_VIRTUAL, 2, 4, 5, 0, 0, 0,
+                new ImmutableMethodReference("Lp/mz1;", "O", List.of("Lcom/spotify/casita/v1/resolved/Section;"), "Lp/n920;")),
+            new ImmutableInstruction11x(Opcode.MOVE_RESULT_OBJECT, 0));
+        if (change == Change.GATE_AFTER_MAPPING) section.addAll(mapping);
+        if (hooked && change != Change.FILTER_ELSEWHERE) {
+            section.addAll(gate("hideHomeSection", change == Change.FILTER_PASSES_THIS ? 4 : 5, false, change));
+        }
+        if (change != Change.GATE_AFTER_MAPPING) section.addAll(mapping);
+        section.add(new ImmutableInstruction11x(Opcode.RETURN_OBJECT, 0));
+        classes.add(definition("Lp/mz1;", method("Lp/mz1;", "g0", List.of("Lcom/spotify/casita/v1/resolved/Section;"),
+            "Lp/n920;", 0x01, 6, section)));
+        if (change == Change.FILTER_ELSEWHERE) {
+            classes.add(definition("Lp/other;", method("Lp/other;", "g0", List.of("Lcom/spotify/casita/v1/resolved/Section;"),
+                "Lp/n920;", 0x01, 6, gate("hideHomeSection", 5, true, change))));
+        }
+        // P2: Provided.getItemsList(), 2 registers: the items in v0, this in v1.
+        var items = new ArrayList<Instruction>();
+        var field = new ImmutableInstruction22c(Opcode.IGET_OBJECT, 0, 1,
+            new ImmutableFieldReference("Lcom/spotify/casita/v1/resolved/Provided;", "items_", "Lp/ih40;"));
+        boolean early = change == Change.ITEMS_BEFORE_THEIR_FIELD;
+        if (!early) items.add(field);
+        if (hooked) items.addAll(filter("filterHomeItems", LIST, LIST, 0, 0));
+        if (early) items.add(field);
+        items.add(new ImmutableInstruction11x(Opcode.RETURN_OBJECT, 0));
+        classes.add(definition("Lcom/spotify/casita/v1/resolved/Provided;", method("Lcom/spotify/casita/v1/resolved/Provided;",
+            "getItemsList", List.of(), LIST, 0x11, 2, items)));
+        // P3: the static xqw.a(List), 12 registers, so the chips are v11.
+        var homeChips = new ArrayList<Instruction>();
+        if (hooked) homeChips.addAll(filter("filterHomeChips", change == Change.FILTER_WRONG_SIGNATURE ? "Ljava/util/Collection;" : LIST,
+            LIST, 11, change == Change.FILTER_RESULT_DROPPED ? 0 : 11));
+        homeChips.add(new ImmutableInstruction21c(Opcode.NEW_INSTANCE, 0, new ImmutableTypeReference(ARRAY_LIST)));
+        homeChips.add(new ImmutableInstruction11x(Opcode.RETURN_OBJECT, 0));
+        classes.add(definition("Lp/xqw;", method("Lp/xqw;", "a", List.of(LIST), ARRAY_LIST, 0x19, 12, homeChips)));
+        // P4: bzw0.b(Entity), 48 registers, so the entity is v47, past what invoke-static can name.
+        var entity = new ArrayList<Instruction>();
+        if (hooked) entity.addAll(gate("hideSearchEntity", 47, true, change));
+        entity.add(new ImmutableInstruction22x(Opcode.MOVE_OBJECT_FROM16, 0, 46));
+        entity.add(new ImmutableInstruction11x(Opcode.RETURN_OBJECT, 0));
+        classes.add(definition("Lp/bzw0;", method("Lp/bzw0;", "b", List.of("Lcom/spotify/searchview/proto/Entity;"),
+            "Lp/onu;", 0x11, 48, entity)));
+        // P5: ipy's constructor, 2 registers: this in v0, the chips in v1.
+        var searchChips = new ArrayList<Instruction>();
+        var init = new ImmutableInstruction35c(Opcode.INVOKE_DIRECT, 1, 0, 0, 0, 0, 0,
+            new ImmutableMethodReference(OBJECT, "<init>", List.of(), "V"));
+        boolean beforeSuper = change == Change.SEARCH_CHIPS_BEFORE_SUPER;
+        if (!beforeSuper) searchChips.add(init);
+        if (hooked) searchChips.addAll(filter("filterSearchChips", ARRAY_LIST, ARRAY_LIST, 1, 1));
+        if (beforeSuper) searchChips.add(init);
+        searchChips.add(new ImmutableInstruction22c(Opcode.IPUT_OBJECT, 1, 0, new ImmutableFieldReference("Lp/ipy;", "a", ARRAY_LIST)));
+        searchChips.add(new ImmutableInstruction10x(Opcode.RETURN_VOID));
+        classes.add(definition("Lp/ipy;", method("Lp/ipy;", "<init>", List.of(ARRAY_LIST), "V", 0x10001, 2, searchChips)));
+        // P6: b90.invoke, 15 registers, where the chip builder's list lands in v8 on its way to Lp/j290;.
+        var libraryChips = new ArrayList<Instruction>();
+        var build = List.of(new ImmutableInstruction3rc(Opcode.INVOKE_INTERFACE_RANGE, 6, 6, new ImmutableMethodReference(
+                CHIP_BUILDER, "a", List.of("Z", "Z", "Lspotify/your_library/esperanto/proto/YourLibraryResponseHeader;", LIST, LIST), LIST)),
+            new ImmutableInstruction11x(Opcode.MOVE_RESULT_OBJECT, 8));
+        boolean beforeBuilder = change == Change.CHIPS_BEFORE_THE_BUILDER;
+        if (!beforeBuilder) libraryChips.addAll(build);
+        if (hooked && change != Change.MISSING_FILTER) libraryChips.addAll(filter("filterLibraryChips", LIST, LIST, 8, 8));
+        if (change == Change.SECOND_FILTER) libraryChips.addAll(filter("filterLibraryChips", LIST, LIST, 8, 8));
+        if (beforeBuilder) libraryChips.addAll(build);
+        libraryChips.add(new ImmutableInstruction11x(Opcode.RETURN_OBJECT, 8));
+        classes.add(definition("Lp/b90;", method("Lp/b90;", "invoke", List.of(OBJECT, OBJECT), OBJECT, 0x11, 15, libraryChips)));
+        // The extension's own settings call HidePodcasts too, for the audiobook switch, in every APK the settings
+        // patch builds. Those calls aren't hooks.
+        var settings = "Lapp/spicetify/extension/spotify/settings/ExtensionSettings;";
+        classes.add(definition(settings, method(settings, "open", List.of("Landroid/content/Context;"), "V", 0x08, 2, List.of(
+            new ImmutableInstruction35c(Opcode.INVOKE_STATIC, 1, 1, 0, 0, 0, 0,
+                new ImmutableMethodReference(FILTERS, "audiobooksHidden", List.of("Landroid/content/Context;"), "Z")),
+            new ImmutableInstruction11x(Opcode.MOVE_RESULT, 0),
+            new ImmutableInstruction35c(Opcode.INVOKE_STATIC, 2, 1, 0, 0, 0, 0,
+                new ImmutableMethodReference(FILTERS, "setAudiobooksHidden", List.of("Landroid/content/Context;", "Z"), "V")),
+            new ImmutableInstruction10x(Opcode.RETURN_VOID)))));
+        classes.add(new ImmutableClassDef(FILTERS, 1, OBJECT, List.of(), null, Set.of(), List.of(), List.of(
+            target(FILTERS, "hideHomeSection", List.of(OBJECT), "Z", 0x09),
+            target(FILTERS, "filterHomeItems", List.of(LIST), LIST, 0x09),
+            target(FILTERS, "filterHomeChips", List.of(LIST), LIST, 0x09),
+            target(FILTERS, "hideSearchEntity", List.of(OBJECT), "Z", 0x09),
+            target(FILTERS, "filterSearchChips", List.of(ARRAY_LIST), ARRAY_LIST, 0x09),
+            target(FILTERS, "filterLibraryChips", List.of(LIST), LIST, change == Change.PRIVATE_FILTER ? 0x0a : 0x09))));
+        return classes;
+    }
+
+    /** `invoke-static {vArgument}, filter`, then `move-result-object vResult`. */
+    List<Instruction> filter(String name, String parameter, String result, int argument, int resultRegister) {
+        return List.of(new ImmutableInstruction35c(Opcode.INVOKE_STATIC, 1, argument, 0, 0, 0, 0,
+                new ImmutableMethodReference(FILTERS, name, List.of(parameter), result)),
+            new ImmutableInstruction11x(Opcode.MOVE_RESULT_OBJECT, resultRegister));
+    }
+
+    /** P1's and P4's gate: ask the filter, and return null when it says to drop, else skip to Spotify's code. */
+    List<Instruction> gate(String name, int argument, boolean range, Change change) {
+        var reference = new ImmutableMethodReference(FILTERS, name, List.of(OBJECT), "Z");
+        return List.of(range ? new ImmutableInstruction3rc(Opcode.INVOKE_STATIC_RANGE, argument, 1, reference)
+                : new ImmutableInstruction35c(Opcode.INVOKE_STATIC, 1, argument, 0, 0, 0, 0, reference),
+            new ImmutableInstruction11x(Opcode.MOVE_RESULT, 0),
+            new ImmutableInstruction21t(change == Change.GATE_INVERTED && range ? Opcode.IF_NEZ : Opcode.IF_EQZ,
+                change == Change.GATE_TESTS_ANOTHER_REGISTER && range ? 1 : 0,
+                change == Change.GATE_SKIPS_TOO_FAR && range ? 6 : 4),
+            new ImmutableInstruction11n(Opcode.CONST_4, 0, change == Change.GATE_RETURNS_ONE && range ? 1 : 0),
+            new ImmutableInstruction11x(Opcode.RETURN_OBJECT, 0));
+    }
+
     /** SharedCosmosRouterService's constructor: 4 registers, so p0 is v1. */
     ImmutableMethod service(Change change) {
-        boolean withoutHook = unhooked(change) || change == Change.MISSING_HOOK || change == Change.WRONG_CALLER;
+        boolean withoutHook = unhooked(change) || change == Change.MISSING_HOOK || change == Change.WRONG_CALLER
+            || change == Change.ONLY_FILTERS;
         List<Instruction> code = new ArrayList<>();
         if (change == Change.BEFORE_SCHEDULING) code.add(bridgeHook(1));
         code.add(schedule());
@@ -199,7 +338,8 @@ class VerifyExtensionsDexTest {
             new ImmutableInstruction11x(Opcode.MOVE_RESULT_OBJECT, 0));
         var model = new ImmutableInstruction21c(Opcode.NEW_INSTANCE, 1, new ImmutableTypeReference(
             change == Change.TRACK_BEFORE_ANOTHER_MODEL && !artist ? "Lp/other;" : "Lp/krj;"));
-        boolean hooked = !unhooked(change) && !(change == Change.MISSING_TRACK_HOOK && !artist);
+        boolean hooked = !unhooked(change) && change != Change.ONLY_FILTERS
+            && !(change == Change.MISSING_TRACK_HOOK && !artist);
         boolean moved = !artist && (change == Change.TRACK_BEFORE_FREEZE || change == Change.TRACK_AFTER_MODEL);
         List<Instruction> code = new ArrayList<>();
         if (hooked && moved && change == Change.TRACK_BEFORE_FREEZE) code.addAll(hook);

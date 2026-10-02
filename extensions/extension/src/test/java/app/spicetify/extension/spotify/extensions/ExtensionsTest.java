@@ -113,6 +113,26 @@ public class ExtensionsTest {
     }
 
     @Test
+    public void hidePodcastsPortsTheDesktopExtensionMatchedInAnyCase() {
+        assertEquals(Extensions.HIDE_PODCASTS, Extensions.port("theRealPadster/spicetify-hide-podcasts/hidePodcasts.js"));
+        assertEquals(Extensions.HIDE_PODCASTS, Extensions.port("therealpadster/Spicetify-Hide-Podcasts/HIDEPODCASTS.JS"));
+        assertNull(Extensions.port("someone/spicetify-hide-podcasts/hidePodcasts.js"));
+        assertTrue(Extensions.hostsPort("theRealPadster/spicetify-hide-podcasts"));
+        assertEquals("Hide podcasts", Extensions.title(Extensions.HIDE_PODCASTS));
+        assertEquals("Hide podcasts and episodes on Home and in Search, and their filters there and in Your Library.",
+                Extensions.description(Extensions.HIDE_PODCASTS));
+    }
+
+    @Test
+    public void enabledListsTheExtensionsThatAreOnInSettingsOrder() {
+        Extensions.setOn(context, Extensions.HIDE_PODCASTS, true);
+        Extensions.setOn(context, Extensions.TRASH_BIN, true);
+        assertEquals(Arrays.asList(Extensions.TRASH_BIN, Extensions.HIDE_PODCASTS), Extensions.enabled(context));
+        Extensions.setOn(context, Extensions.TRASH_BIN, false);
+        Extensions.setOn(context, Extensions.HIDE_PODCASTS, false);
+    }
+
+    @Test
     public void enabledListsTheExtensionsThatAreOn() {
         Extensions.setOn(context, Extensions.TRASH_BIN, false);
         assertEquals(Collections.emptyList(), Extensions.enabled(context));

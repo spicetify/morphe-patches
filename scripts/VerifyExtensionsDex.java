@@ -7,6 +7,7 @@ import com.android.tools.smali.dexlib2.AccessFlags;
 import com.android.tools.smali.dexlib2.DexFileFactory;
 import com.android.tools.smali.dexlib2.Opcode;
 import com.android.tools.smali.dexlib2.Opcodes;
+import com.android.tools.smali.dexlib2.formatter.DexFormatter;
 import com.android.tools.smali.dexlib2.iface.ClassDef;
 import com.android.tools.smali.dexlib2.iface.Method;
 import com.android.tools.smali.dexlib2.iface.instruction.FiveRegisterInstruction;
@@ -29,6 +30,30 @@ class VerifyExtensionsDex {
     static final String INSTALLED = "Lapp/spicetify/extension/spotify/settings/InstalledPatches;";
     static final String NOW_PLAYING_SHUFFLE = EXTENSIONS + "NowPlayingShuffle;";
     static final String PLAYLIST_MENU_PROVIDER = EXTENSIONS + "nativebridge/PlaylistMenuProvider;";
+    static final String HIDE_PODCASTS = EXTENSIONS + "HidePodcasts;";
+
+    /**
+     * A Hide podcasts hook: its filter's parameter and result, the Spotify method it sits in, the register
+     * it filters (-1 for that method's last, its last parameter), and what it follows (null: nothing, it
+     * comes first).
+     */
+    record Filter(String parameter, String result, String caller, int argument, String after) {}
+
+    static final Map<String, Filter> FILTERS = Map.of(
+        "hideHomeSection", new Filter("Ljava/lang/Object;", "Z",
+            "Lp/mz1;->g0(Lcom/spotify/casita/v1/resolved/Section;)Lp/n920;", -1, null),
+        "filterHomeItems", new Filter("Ljava/util/List;", "Ljava/util/List;",
+            "Lcom/spotify/casita/v1/resolved/Provided;->getItemsList()Ljava/util/List;", 0,
+            "Lcom/spotify/casita/v1/resolved/Provided;->items_:Lp/ih40;"),
+        "filterHomeChips", new Filter("Ljava/util/List;", "Ljava/util/List;",
+            "Lp/xqw;->a(Ljava/util/List;)Ljava/util/ArrayList;", -1, null),
+        "hideSearchEntity", new Filter("Ljava/lang/Object;", "Z",
+            "Lp/bzw0;->b(Lcom/spotify/searchview/proto/Entity;)Lp/onu;", -1, null),
+        "filterSearchChips", new Filter("Ljava/util/ArrayList;", "Ljava/util/ArrayList;",
+            "Lp/ipy;-><init>(Ljava/util/ArrayList;)V", -1, "Ljava/lang/Object;-><init>()V"),
+        "filterLibraryChips", new Filter("Ljava/util/List;", "Ljava/util/List;",
+            "Lp/b90;->invoke(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;", 8,
+            "Lp/k770;->a(ZZLspotify/your_library/esperanto/proto/YourLibraryResponseHeader;Ljava/util/List;Ljava/util/List;)Ljava/util/List;"));
 
     static void require(boolean condition, String message) {
         if (!condition) throw new AssertionError(message);
@@ -56,8 +81,10 @@ class VerifyExtensionsDex {
         }
         int bridgeHooks = 0, trackHooks = 0, artistHooks = 0, chipsHooks = 0, tapHooks = 0, shuffleHooks = 0,
                 providersHooks = 0;
+        Map<String, Integer> filterHooks = new HashMap<>();
         for (var definition : classes.values()) {
-            if (definition.getType().startsWith(EXTENSIONS)) continue;
+            // Hooks sit in Spotify's classes. The extension's own, such as its settings, may call any of these.
+            if (definition.getType().startsWith("Lapp/spicetify/")) continue;
             for (var method : definition.getMethods()) {
                 if (method.getImplementation() == null) continue;
                 var code = code(method);
@@ -83,6 +110,10 @@ class VerifyExtensionsDex {
                     } else if (calls(code.get(index), PLAYLIST_MENU_PROVIDER, "providers")) {
                         providersHooks++;
                         verifyProvidersHook(definition, method, code, index);
+                    } else if (code.get(index) instanceof ReferenceInstruction ref && ref.getReference() instanceof MethodReference m
+                            && m.getDefiningClass().equals(HIDE_PODCASTS)) {
+                        filterHooks.merge(m.getName(), 1, Integer::sum);
+                        verifyFilterHook(method, code, index, m);
                     }
                 }
             }
@@ -95,6 +126,10 @@ class VerifyExtensionsDex {
                         + ", artist menu " + artistHooks + ", Home chips " + chipsHooks + ", Home chip tap " + tapHooks
                         + ", Now Playing shuffle " + shuffleHooks + ", playlist menu " + providersHooks);
         verifyCapability(classes.get(INSTALLED), enabled);
+        for (var name : FILTERS.keySet()) {
+            require(filterHooks.getOrDefault(name, 0) == expected, "Unexpected Hide podcasts hook count: " + name
+                    + " " + filterHooks.getOrDefault(name, 0));
+        }
         if (enabled) {
             requireTarget(classes, BRIDGE, "onCosmos", List.of("Ljava/lang/Object;"), "V");
             requireTarget(classes, MENU_BRIDGE, "track", List.of("Ljava/util/List;", "Ljava/lang/Object;"), "Ljava/util/List;");
@@ -103,9 +138,11 @@ class VerifyExtensionsDex {
             requireTarget(classes, CHIP_BRIDGE, "onTap", List.of("Ljava/lang/String;"), "Z");
             requireTarget(classes, NOW_PLAYING_SHUFFLE, "onButton", List.of("Landroid/view/View;"), "V");
             requireTarget(classes, PLAYLIST_MENU_PROVIDER, "providers", List.of("Ljava/util/List;"), "Ljava/util/List;");
+            FILTERS.forEach((name, filter) -> requireTarget(classes, HIDE_PODCASTS, name, List.of(filter.parameter()), filter.result()));
         }
+        int filters = filterHooks.values().stream().mapToInt(Integer::intValue).sum();
         System.out.println("Spicetify extensions verified: "
-                + (bridgeHooks + trackHooks + artistHooks + chipsHooks + tapHooks + shuffleHooks + providersHooks)
+                + (bridgeHooks + trackHooks + artistHooks + chipsHooks + tapHooks + shuffleHooks + providersHooks + filters)
                 + " hook(s), selected=" + enabled);
     }
 
@@ -140,6 +177,60 @@ class VerifyExtensionsDex {
                     && m.getImplementation() != null;
         }
         require(found, "Hook target " + owner + "->" + name + " must be a public static method with a body");
+    }
+
+    /**
+     * P1 to P6 hand Hide podcasts what Spotify is about to use. P1 and P4 come first and return null when
+     * the filter drops the Home section or search result; every caller skips null. The others filter a
+     * list right after Spotify makes or receives it, and put the filtered list back in the same register.
+     */
+    static void verifyFilterHook(Method method, List<Instruction> code, int index, MethodReference target) {
+        String name = target.getName();
+        Filter filter = FILTERS.get(name);
+        require(filter != null && filter.caller().equals(DexFormatter.INSTANCE.getMethodDescriptor(method)),
+                "Hide podcasts hook " + name + " is outside " + (filter == null ? "the six it has" : filter.caller()));
+        require(target.getParameterTypes().equals(List.of(filter.parameter())) && target.getReturnType().equals(filter.result()),
+                "Hide podcasts hook " + name + " calls the wrong signature");
+        int argument = filter.argument() < 0 ? method.getImplementation().getRegisterCount() - 1 : filter.argument();
+        require(onlyRegister(code.get(index)) == argument, "Hide podcasts hook " + name + " must pass v" + argument);
+        if (filter.after() == null) {
+            require(index == 0, "Hide podcasts hook " + name + " must come first");
+        } else {
+            int before = index - 1;
+            if (before >= 0 && code.get(before).getOpcode() == Opcode.MOVE_RESULT_OBJECT
+                    && ((OneRegisterInstruction) code.get(before)).getRegisterA() == argument) before--;
+            require(before >= 0 && code.get(before) instanceof ReferenceInstruction ref
+                    && ref.getReference().toString().equals(filter.after()),
+                    "Hide podcasts hook " + name + " must follow " + filter.after());
+        }
+        if (filter.result().equals("Z")) {
+            require(index + 4 < code.size() && code.get(index + 1).getOpcode() == Opcode.MOVE_RESULT
+                    && code.get(index + 2).getOpcode() == Opcode.IF_EQZ && ((OffsetInstruction) code.get(index + 2)).getCodeOffset() == 4
+                    && code.get(index + 3).getOpcode() == Opcode.CONST_4
+                    && ((NarrowLiteralInstruction) code.get(index + 3)).getNarrowLiteral() == 0
+                    && code.get(index + 4).getOpcode() == Opcode.RETURN_OBJECT
+                    && sameRegister(code.subList(index + 1, index + 5)),
+                    "Hide podcasts hook " + name + " must return null only when its filter says so");
+        } else {
+            require(index + 1 < code.size() && code.get(index + 1).getOpcode() == Opcode.MOVE_RESULT_OBJECT
+                    && ((OneRegisterInstruction) code.get(index + 1)).getRegisterA() == argument,
+                    "Hide podcasts hook " + name + "'s list must replace v" + argument);
+        }
+    }
+
+    /** The only register an invoke passes, or -1. */
+    static int onlyRegister(Instruction call) {
+        if (call.getOpcode() == Opcode.INVOKE_STATIC && call instanceof FiveRegisterInstruction five
+                && five.getRegisterCount() == 1) return five.getRegisterC();
+        if (call.getOpcode() == Opcode.INVOKE_STATIC_RANGE && call instanceof RegisterRangeInstruction range
+                && range.getRegisterCount() == 1) return range.getStartRegister();
+        return -1;
+    }
+
+    /** Whether each of [instructions] names the same first register: the gate's result. */
+    static boolean sameRegister(List<Instruction> instructions) {
+        int register = ((OneRegisterInstruction) instructions.get(0)).getRegisterA();
+        return instructions.stream().allMatch(i -> ((OneRegisterInstruction) i).getRegisterA() == register);
     }
 
     /**

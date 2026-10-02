@@ -14,6 +14,7 @@ import android.widget.ListView;
 import android.widget.Switch;
 import android.widget.TextView;
 import app.spicetify.extension.spotify.extensions.Extensions;
+import app.spicetify.extension.spotify.extensions.HidePodcasts;
 import app.spicetify.extension.spotify.extensions.PlayerBridgeTest;
 import app.spicetify.extension.spotify.extensions.TrashBin;
 import java.io.File;
@@ -100,6 +101,8 @@ public class ExtensionSettingsTest {
         Extensions.setOn(context, Extensions.TRASH_BIN, false);
         Extensions.setOn(context, Extensions.RANDOM_SONG, false);
         Extensions.setOn(context, Extensions.SHUFFLE_PLUS, false);
+        Extensions.setOn(context, Extensions.HIDE_PODCASTS, false);
+        HidePodcasts.setAudiobooksHidden(context, true);
         TrashBin.clear(context);
         MarketplaceSettings.fetcher = productionFetcher;
         MarketplaceSettings.loads = productionLoads;
@@ -360,6 +363,40 @@ public class ExtensionSettingsTest {
             assertTrue("the sheet stays for another run", sheet.isShown());
         } finally {
             PlayerBridgeTest.attachRouter(false);
+        }
+    }
+
+    @Test public void hidePodcastsSheetHasAnAudiobookSwitch_onUntilTurnedOff() {
+        Extensions.setOn(context, Extensions.HIDE_PODCASTS, true);
+        try (var controller = root()) {
+            View root = decor();
+            row(root, "Hide podcasts").performClick();
+            View sheet = decor();
+            assertTrue(visibleTexts(sheet).contains(Extensions.description(Extensions.HIDE_PODCASTS)));
+            assertTrue(visibleTexts(sheet).contains(
+                    "Hide audiobooks on Home and in Search, and the Books and Authors filters in Your Library."));
+            Switch audiobooks = first(row(sheet, "Also hide audiobooks"), Switch.class);
+            assertTrue(audiobooks.isChecked());
+            assertTrue(HidePodcasts.audiobooksHidden(context));
+
+            audiobooks.performClick();
+            assertFalse(HidePodcasts.audiobooksHidden(context));
+            button(sheet, "Close").performClick();
+            idle();
+
+            // Hide podcasts is still on, and its sheet shows the switch as it was left.
+            row(root, "Hide podcasts").performClick();
+            assertFalse(first(row(decor(), "Also hide audiobooks"), Switch.class).isChecked());
+            assertTrue(Extensions.isOn(context, Extensions.HIDE_PODCASTS));
+        }
+    }
+
+    @Test public void onlyHidePodcastsSheetHasTheAudiobookSwitch() {
+        Extensions.setOn(context, Extensions.TRASH_BIN, true);
+        try (var controller = root()) {
+            row(decor(), "Trash Bin").performClick();
+            assertNotNull(row(decor(), "Export"));
+            assertNull(row(decor(), "Also hide audiobooks"));
         }
     }
 

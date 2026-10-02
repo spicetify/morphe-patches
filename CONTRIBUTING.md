@@ -135,8 +135,11 @@ Spotify rewrites them, that each chip tap reaches the chip bridge before Home's
 loop and skips it when the bridge takes the tap, that Now Playing's shuffle
 button reaches Shuffle+ right after its constructor stores it, that the list
 menu's item providers gain the playlist menu provider right before the menu
-stores them, that `InstalledPatches.extensions()` is on, and that no hook is
-present and the capability is off without the patch. The patch also
+stores them, that Hide podcasts' six filters sit in their Home, Search and Your
+Library methods, take the section, result or list Spotify is about to use, and
+either return null only when the filter drops it or put the filtered list back
+where Spotify reads it, that `InstalledPatches.extensions()` is on, and that no
+hook is present and the capability is off without the patch. The patch also
 checks each field number of the player, playlist, metadata, and Your Library
 messages that the extensions read or write;
 `verify-failures.py --case changed-player-protocol` checks that refusal.

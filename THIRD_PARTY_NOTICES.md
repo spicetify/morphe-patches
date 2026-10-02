@@ -114,6 +114,14 @@ an album or Liked Songs, shuffles them with Fisher-Yates, and plays that exact
 order. It is reimplemented in Java for Spotify's Android player, and no code is
 copied.
 
+Hide podcasts follows the behavior of the desktop extension
+[`hidePodcasts.js`](https://github.com/theRealPadster/spicetify-hide-podcasts/tree/cc3e71597c5aee760e1003529147bec00a8a8a2d)
+in theRealPadster/spicetify-hide-podcasts (GPL-3.0), at
+`cc3e71597c5aee760e1003529147bec00a8a8a2d`. Only its behavior is followed: it
+hides podcasts on Home and in Search, and audiobooks unless that option is
+turned off. It is reimplemented in Java for Spotify's Android screens, and no
+code is copied.
+
 ## APK reverse engineering skill
 
 `.agents/skills/apk-reverse` contains the skill directory from

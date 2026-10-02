@@ -9,6 +9,7 @@ import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import app.spicetify.extension.spotify.extensions.Extensions;
+import app.spicetify.extension.spotify.extensions.HidePodcasts;
 import app.spicetify.extension.spotify.extensions.PlayerBridge;
 import app.spicetify.extension.spotify.extensions.RandomSong;
 import app.spicetify.extension.spotify.extensions.ShufflePlus;
@@ -63,6 +64,11 @@ final class ExtensionSettings {
         if (Extensions.SHUFFLE_PLUS.equals(id)) {
             SpotifyStyle.actionRow(whileOn, "Shuffle+ what's playing", "Play every song of the list that's playing in a new order",
                     view -> ShufflePlus.shuffleWhatsPlaying(screen));
+        }
+        if (Extensions.HIDE_PODCASTS.equals(id)) {
+            SpotifyStyle.toggleRow(rows, "Also hide audiobooks",
+                    "Hide audiobooks on Home and in Search, and the Books and Authors filters in Your Library.",
+                    HidePodcasts.audiobooksHidden(screen), (button, hidden) -> HidePodcasts.setAudiobooksHidden(screen, hidden));
         }
         rows.addView(whileOn);
         SpotifySheet sheet = new SpotifySheet(screen, Extensions.title(id), Extensions.description(id));

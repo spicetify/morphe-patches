@@ -18,6 +18,7 @@ public final class Extensions {
     public static final String TRASH_BIN = "trash_bin";
     public static final String RANDOM_SONG = "random_song";
     public static final String SHUFFLE_PLUS = "shuffle_plus";
+    public static final String HIDE_PODCASTS = "hide_podcasts";
 
     /**
      * Each extension on Android: its id, the desktop extension it ports as owner/repo/main, or null
@@ -31,6 +32,8 @@ public final class Extensions {
         {SHUFFLE_PLUS, "spicetify/cli/Extensions/shuffle+.js", "Shuffle+",
                 "Long-press the shuffle button in Now Playing, or choose Shuffle+ this playlist in a playlist's menu,"
                         + " to play a playlist, album or Liked Songs in a truly random order."},
+        {HIDE_PODCASTS, "theRealPadster/spicetify-hide-podcasts/hidePodcasts.js", "Hide podcasts",
+                "Hide podcasts and episodes on Home and in Search, and their filters there and in Your Library."},
     };
     private static final String PREFERENCES = "spicetify_extensions";
     private static final Map<String, SwitchListener> SWITCHES = new ConcurrentHashMap<>();
@@ -140,7 +143,8 @@ public final class Extensions {
         }
     }
 
-    private static SharedPreferences preferences(Context context) {
+    /** The switches, and options such as Hide podcasts' audiobook option. */
+    static SharedPreferences preferences(Context context) {
         return context.getApplicationContext().getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE);
     }
 
