@@ -250,7 +250,7 @@ public class ExtensionSettingsTest {
             idle();
             ListView list = first(decor(), ListView.class);
             View random = list.getAdapter().getView(0, null, list);
-            assertEquals(Arrays.asList("Play a random song", "Play one random song from all of Spotify or from your library."),
+            assertEquals(Arrays.asList("Play a random song", "Tap Random on Home, next to All, to play one random song from all of Spotify or from your library."),
                     visibleTexts(random).subList(0, 2));
             assertTrue(first(random, Switch.class).isEnabled());
             random.performClick();
@@ -278,7 +278,7 @@ public class ExtensionSettingsTest {
         try (var controller = root()) {
             row(decor(), "Play a random song").performClick();
             View sheet = decor();
-            assertTrue(visibleTexts(sheet).contains("Play one random song from all of Spotify or from your library."));
+            assertTrue(visibleTexts(sheet).contains("Tap Random on Home, next to All, to play one random song from all of Spotify or from your library."));
             assertTrue(first(sheet, Switch.class).isChecked());
 
             row(sheet, "A song from Spotify").performClick();

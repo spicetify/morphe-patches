@@ -25,7 +25,8 @@ public final class Extensions {
     private static final String[][] PORTS = {
         {TRASH_BIN, "spicetify/cli/Extensions/trashbin.js", "Trash Bin",
                 "Throw songs and artists in the trash from their menus, and Spotify skips them."},
-        {RANDOM_SONG, null, "Play a random song", "Play one random song from all of Spotify or from your library."},
+        {RANDOM_SONG, null, "Play a random song",
+                "Tap Random on Home, next to All, to play one random song from all of Spotify or from your library."},
     };
     private static final String PREFERENCES = "spicetify_extensions";
     private static final Map<String, SwitchListener> SWITCHES = new ConcurrentHashMap<>();

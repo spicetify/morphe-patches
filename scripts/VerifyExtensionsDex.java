@@ -12,6 +12,7 @@ import com.android.tools.smali.dexlib2.iface.Method;
 import com.android.tools.smali.dexlib2.iface.instruction.FiveRegisterInstruction;
 import com.android.tools.smali.dexlib2.iface.instruction.Instruction;
 import com.android.tools.smali.dexlib2.iface.instruction.NarrowLiteralInstruction;
+import com.android.tools.smali.dexlib2.iface.instruction.OffsetInstruction;
 import com.android.tools.smali.dexlib2.iface.instruction.OneRegisterInstruction;
 import com.android.tools.smali.dexlib2.iface.instruction.ReferenceInstruction;
 import com.android.tools.smali.dexlib2.iface.instruction.RegisterRangeInstruction;
@@ -24,6 +25,7 @@ class VerifyExtensionsDex {
     static final String BRIDGE = EXTENSIONS + "PlayerBridge;";
     static final String SERVICE = "Lcom/spotify/cosmos/sharedcosmosrouterservice/SharedCosmosRouterService;";
     static final String MENU_BRIDGE = EXTENSIONS + "nativebridge/MenuBridge;";
+    static final String CHIP_BRIDGE = EXTENSIONS + "nativebridge/HomeChipBridge;";
     static final String INSTALLED = "Lapp/spicetify/extension/spotify/settings/InstalledPatches;";
 
     static void require(boolean condition, String message) {
@@ -50,7 +52,7 @@ class VerifyExtensionsDex {
         for (var entry : dex.getDexEntryNames()) {
             for (var definition : dex.getEntry(entry).getDexFile().getClasses()) classes.put(definition.getType(), definition);
         }
-        int bridgeHooks = 0, trackHooks = 0, artistHooks = 0;
+        int bridgeHooks = 0, trackHooks = 0, artistHooks = 0, chipsHooks = 0, tapHooks = 0;
         for (var definition : classes.values()) {
             if (definition.getType().startsWith(EXTENSIONS)) continue;
             for (var method : definition.getMethods()) {
@@ -66,21 +68,30 @@ class VerifyExtensionsDex {
                     } else if (calls(code.get(index), MENU_BRIDGE, "artist")) {
                         artistHooks++;
                         verifyMenuHook(definition, method, code, index, "Lp/lr5;", 1);
+                    } else if (calls(code.get(index), CHIP_BRIDGE, "chips")) {
+                        chipsHooks++;
+                        verifyChipsHook(definition, method, code, index);
+                    } else if (calls(code.get(index), CHIP_BRIDGE, "onTap")) {
+                        tapHooks++;
+                        verifyTapHook(definition, method, code, index);
                     }
                 }
             }
         }
         int expected = enabled ? 1 : 0;
-        require(bridgeHooks == expected && trackHooks == expected && artistHooks == expected,
+        require(bridgeHooks == expected && trackHooks == expected && artistHooks == expected
+                && chipsHooks == expected && tapHooks == expected,
                 "Unexpected hook counts: player bridge " + bridgeHooks + ", track menu " + trackHooks
-                        + ", artist menu " + artistHooks);
+                        + ", artist menu " + artistHooks + ", Home chips " + chipsHooks + ", Home chip tap " + tapHooks);
         verifyCapability(classes.get(INSTALLED), enabled);
         if (enabled) {
             requireTarget(classes, BRIDGE, "onCosmos", List.of("Ljava/lang/Object;"), "V");
             requireTarget(classes, MENU_BRIDGE, "track", List.of("Ljava/util/List;", "Ljava/lang/Object;"), "Ljava/util/List;");
             requireTarget(classes, MENU_BRIDGE, "artist", List.of("Ljava/util/List;", "Ljava/lang/Object;"), "Ljava/util/List;");
+            requireTarget(classes, CHIP_BRIDGE, "chips", List.of("Ljava/util/List;"), "Ljava/util/List;");
+            requireTarget(classes, CHIP_BRIDGE, "onTap", List.of("Ljava/lang/String;"), "Z");
         }
-        System.out.println("Spicetify extensions verified: " + (bridgeHooks + trackHooks + artistHooks)
+        System.out.println("Spicetify extensions verified: " + (bridgeHooks + trackHooks + artistHooks + chipsHooks + tapHooks)
                 + " hook(s), selected=" + enabled);
     }
 
@@ -148,6 +159,71 @@ class VerifyExtensionsDex {
                 && ((OneRegisterInstruction) code.get(index + 2)).getRegisterA() == 1
                 && ((ReferenceInstruction) code.get(index + 2)).getReference().toString().equals("Lp/krj;"),
                 "Menu hook's list must become the menu model's");
+    }
+
+    /**
+     * A hands Home's chips, which Lp/xqw;->a has just rewritten into v1, to the chip bridge and puts its
+     * answer back in v1, right before Home copies them into the new ArrayList it keeps.
+     */
+    static void verifyChipsHook(ClassDef owner, Method method, List<Instruction> code, int index) {
+        require(owner.getType().equals("Lp/qrl;") && method.getName().equals("invokeSuspend")
+                && method.getParameterTypes().equals(List.of("Ljava/lang/Object;")),
+                "Home chips hook is outside Lp/qrl;->invokeSuspend");
+        require(code.get(index).getOpcode() == Opcode.INVOKE_STATIC
+                && code.get(index) instanceof FiveRegisterInstruction call
+                && call.getRegisterCount() == 1 && call.getRegisterC() == 1,
+                "Home chips hook must pass the chips in v1");
+        require(index >= 2 && code.get(index - 1).getOpcode() == Opcode.MOVE_RESULT_OBJECT
+                && ((OneRegisterInstruction) code.get(index - 1)).getRegisterA() == 1
+                && calls(code.get(index - 2), "Lp/xqw;", "a"),
+                "Home chips hook must follow Spotify's rewrite of the chips");
+        require(index + 2 < code.size() && code.get(index + 1).getOpcode() == Opcode.MOVE_RESULT_OBJECT
+                && ((OneRegisterInstruction) code.get(index + 1)).getRegisterA() == 1
+                && code.get(index + 2).getOpcode() == Opcode.NEW_INSTANCE
+                && ((OneRegisterInstruction) code.get(index + 2)).getRegisterA() == 2
+                && ((ReferenceInstruction) code.get(index + 2)).getReference().toString().equals("Ljava/util/ArrayList;"),
+                "Home chips hook's list must become the copy Home keeps");
+    }
+
+    /**
+     * B hands a chip tap's id, v1, to the chip bridge right after Home built the tap's Lp/q8w; from it. A true
+     * answer skips to the case's return-object v13; otherwise the tap goes on to Home's loop, Lp/bay;->invoke.
+     */
+    static void verifyTapHook(ClassDef owner, Method method, List<Instruction> code, int index) {
+        require(owner.getType().equals("Lp/a4v;") && method.getName().equals("invoke")
+                && method.getParameterTypes().equals(List.of("Ljava/lang/Object;", "Ljava/lang/Object;")),
+                "Home chip tap hook is outside Lp/a4v;->invoke");
+        require(code.get(index).getOpcode() == Opcode.INVOKE_STATIC
+                && code.get(index) instanceof FiveRegisterInstruction call
+                && call.getRegisterCount() == 1 && call.getRegisterC() == 1,
+                "Home chip tap hook must pass the chip's id in v1");
+        require(index >= 1 && calls(code.get(index - 1), "Lp/q8w;", "<init>")
+                && code.get(index - 1) instanceof FiveRegisterInstruction event
+                && event.getRegisterCount() == 2 && event.getRegisterD() == 1,
+                "Home chip tap hook must follow the tap's event, built from the chip's id");
+        require(index + 3 < code.size() && code.get(index + 1).getOpcode() == Opcode.MOVE_RESULT
+                && ((OneRegisterInstruction) code.get(index + 1)).getRegisterA() == 1
+                && code.get(index + 2).getOpcode() == Opcode.IF_NEZ
+                && ((OneRegisterInstruction) code.get(index + 2)).getRegisterA() == 1
+                && calls(code.get(index + 3), "Lp/bay;", "invoke"),
+                "Home chip tap hook must branch on its answer right before the tap goes to Home's loop");
+        int skip = branchTarget(code, index + 2);
+        require(skip >= 0 && code.get(skip).getOpcode() == Opcode.RETURN_OBJECT
+                && ((OneRegisterInstruction) code.get(skip)).getRegisterA() == 13,
+                "Home chip tap hook must skip to the case's return");
+    }
+
+    /** The index of the instruction that branch {@code index} jumps to, or -1 when no instruction starts there. */
+    static int branchTarget(List<Instruction> code, int index) {
+        int address = 0;
+        for (int i = 0; i < index; i++) address += code.get(i).getCodeUnits();
+        int target = address + ((OffsetInstruction) code.get(index)).getCodeOffset();
+        address = 0;
+        for (int i = 0; i < code.size(); i++) {
+            if (address == target) return i;
+            address += code.get(i).getCodeUnits();
+        }
+        return -1;
     }
 
     /**

@@ -1,15 +1,19 @@
 package app.spicetify.patches.spotify.extensions
 
 import app.morphe.patcher.extensions.InstructionExtensions.addInstructions
+import app.morphe.patcher.extensions.InstructionExtensions.addInstructionsWithLabels
+import app.morphe.patcher.extensions.InstructionExtensions.getInstruction
 import app.morphe.patcher.patch.BytecodePatchContext
 import app.morphe.patcher.patch.PatchException
 import app.morphe.patcher.patch.bytecodePatch
 import app.morphe.patcher.util.proxy.mutableTypes.MutableMethod
+import app.morphe.patcher.util.smali.ExternalLabel
 import app.spicetify.patches.spotify.settings.NativeSettingsAbi
 import app.spicetify.patches.spotify.settings.enableSetting
 import app.spicetify.patches.spotify.settings.settingsPatch
 import app.spicetify.patches.spotify.spotifyCompatibility
 import com.android.tools.smali.dexlib2.Opcode
+import com.android.tools.smali.dexlib2.iface.instruction.FiveRegisterInstruction
 import com.android.tools.smali.dexlib2.iface.instruction.Instruction
 import com.android.tools.smali.dexlib2.iface.instruction.OneRegisterInstruction
 import com.android.tools.smali.dexlib2.iface.instruction.ReferenceInstruction
@@ -20,6 +24,9 @@ import java.util.Properties
 
 private const val COSMOS_SERVICE = "Lcom/spotify/cosmos/sharedcosmosrouterservice/SharedCosmosRouterService;"
 private const val MENU_BRIDGE = "Lapp/spicetify/extension/spotify/extensions/nativebridge/MenuBridge;"
+private const val HOME_FEEDS = "Lp/qrl;"
+private const val CHIP_EVENTS = "Lp/a4v;"
+private const val HOME_CHIP_BRIDGE = "Lapp/spicetify/extension/spotify/extensions/nativebridge/HomeChipBridge;"
 
 // Every protobuf field number the extension's Esperanto.java writes or reads, as class#NAME_FIELD_NUMBER.
 // These classes keep their names and constants, so a build that renumbers a field fails here. Map
@@ -79,7 +86,8 @@ val extensionsPatch = bytecodePatch(
     name = "Spicetify extensions",
     description = "Adds Android versions of Spicetify extensions to the Spicetify Marketplace's Extensions tab, " +
         "in Spicetify settings, each off until you turn it on. Trash Bin skips the songs and artists you throw " +
-        "away from their menus. Play a random song plays one from all of Spotify or your library.",
+        "away from their menus. Play a random song plays one from all of Spotify or your library, from a " +
+        "Random pill on Home.",
     default = false,
 ) {
     compatibleWith(spotifyCompatibility)
@@ -118,6 +126,23 @@ val extensionsPatch = bytecodePatch(
         val trackMenu = menuBuilder("Lp/b9p0;", 1678)
         val artistMenu = menuBuilder("Lp/lr5;", 633)
 
+        // A and B: Home's filter row gets the Random pill once Lp/xqw;->a has rewritten the server's chips,
+        // which v1 holds until 315 copies them. Each chip tap is offered to the chip bridge before its
+        // Lp/q8w; reaches Home's loop at 1205. v1, the chip's id, is dead after 1204, so it takes the answer,
+        // and a handled tap skips to the case's return at 1214.
+        val homeFeeds = mutableClassDefBy(HOME_FEEDS).methods.single {
+            it.name == "invokeSuspend" && it.parameterTypes == listOf("Ljava/lang/Object;")
+        }
+        if (!isChipsCopy(homeFeeds.implementation!!.instructions, 315)) {
+            throw PatchException("Spotify extensions ABI changed: $HOME_FEEDS. Use the verified Spotify 9.1.80.2221 APK.")
+        }
+        val chipEvents = mutableClassDefBy(CHIP_EVENTS).methods.single {
+            it.name == "invoke" && it.parameterTypes == listOf("Ljava/lang/Object;", "Ljava/lang/Object;")
+        }
+        if (!isChipTapSend(chipEvents.implementation!!.instructions, 1205, 1214)) {
+            throw PatchException("Spotify extensions ABI changed: $CHIP_EVENTS. Use the verified Spotify 9.1.80.2221 APK.")
+        }
+
         constructor.addInstructions(index,
             "invoke-static/range {p0 .. p0}, Lapp/spicetify/extension/spotify/extensions/PlayerBridge;->onCosmos(Ljava/lang/Object;)V")
         trackMenu.addInstructions(1678, """
@@ -129,6 +154,15 @@ val extensionsPatch = bytecodePatch(
             invoke-static {v0, v1}, $MENU_BRIDGE->artist(Ljava/util/List;Ljava/lang/Object;)Ljava/util/List;
             move-result-object v0
         """.trimIndent())
+        homeFeeds.addInstructions(315, """
+            invoke-static {v1}, $HOME_CHIP_BRIDGE->chips(Ljava/util/List;)Ljava/util/List;
+            move-result-object v1
+        """.trimIndent())
+        chipEvents.addInstructionsWithLabels(1205, """
+            invoke-static {v1}, $HOME_CHIP_BRIDGE->onTap(Ljava/lang/String;)Z
+            move-result v1
+            if-nez v1, :handled
+        """.trimIndent(), ExternalLabel("handled", chipEvents.getInstruction(1214)))
         enableSetting("extensions")
     }
 }
@@ -142,6 +176,33 @@ private fun BytecodePatchContext.menuBuilder(type: String, index: Int): MutableM
         throw PatchException("Spotify extensions ABI changed: $type. Use the verified Spotify 9.1.80.2221 APK.")
     }
     return apply
+}
+
+/** Whether [instruction] is [opcode] with [reference], written like `Lp/a;->b:I`, or with none when it's null. */
+internal fun isHookSite(instruction: Instruction?, opcode: Opcode, reference: String? = null): Boolean =
+    instruction?.opcode == opcode && (instruction as? ReferenceInstruction)?.reference?.toString() == reference
+
+/**
+ * Whether [index] holds A's place in `Lp/qrl;->invokeSuspend`: `new-instance v2, ArrayList`, which copies
+ * the chips, right after `move-result-object v1` took them from `Lp/xqw;->a`. A replaces them in v1 first.
+ */
+internal fun isChipsCopy(instructions: List<Instruction>, index: Int): Boolean {
+    val chips = instructions.getOrNull(index - 1)
+    val copy = instructions.getOrNull(index)
+    return isHookSite(chips, Opcode.MOVE_RESULT_OBJECT) && (chips as OneRegisterInstruction).registerA == 1 &&
+        isHookSite(copy, Opcode.NEW_INSTANCE, "Ljava/util/ArrayList;") && (copy as OneRegisterInstruction).registerA == 2
+}
+
+/**
+ * Whether [index] holds B's place in `Lp/a4v;->invoke`: `invoke-virtual {v3, v2}, Lp/bay;->invoke`, which
+ * sends a chip tap's `Lp/q8w;` to Home's loop, and [end] holds the `return-object v13` that B skips to.
+ */
+internal fun isChipTapSend(instructions: List<Instruction>, index: Int, end: Int): Boolean {
+    val send = instructions.getOrNull(index)
+    val done = instructions.getOrNull(end)
+    return isHookSite(send, Opcode.INVOKE_VIRTUAL, "Lp/bay;->invoke(Ljava/lang/Object;)Ljava/lang/Object;") &&
+        (send as FiveRegisterInstruction).registerC == 3 && send.registerD == 2 &&
+        isHookSite(done, Opcode.RETURN_OBJECT) && (done as OneRegisterInstruction).registerA == 13
 }
 
 /** Whether [instruction] is `new-instance v1, Lp/krj;`, the menu model that T1 and T2 insert before. */

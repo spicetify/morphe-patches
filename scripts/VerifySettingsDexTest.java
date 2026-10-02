@@ -307,6 +307,9 @@ class VerifySettingsDexTest {
         reject("missing menu item type", () -> VerifySettingsDex.classes.remove("Lp/jpj;"));
         reject("missing menu callbacks",
                 () -> VerifySettingsDex.classes.remove(VerifySettingsDex.EXTENSIONS + "ExtensionMenus;"));
+        reject("missing home chip type", () -> VerifySettingsDex.classes.remove("Lp/ztx;"));
+        reject("missing home chip callbacks",
+                () -> VerifySettingsDex.classes.remove(VerifySettingsDex.EXTENSIONS + "HomeChips;"));
         reject("missing native target", () -> VerifySettingsDex.classes.remove("Lp/xh0;"));
         reject(
                 "missing navigator method",

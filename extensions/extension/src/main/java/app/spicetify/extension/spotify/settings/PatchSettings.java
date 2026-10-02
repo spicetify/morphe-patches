@@ -2,6 +2,7 @@ package app.spicetify.extension.spotify.settings;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import app.spicetify.extension.spotify.extensions.ActivityTracker;
 import app.spicetify.extension.spotify.home.HomePins;
 import app.spicetify.extension.spotify.localserver.ServerConfig;
 import app.spicetify.extension.spotify.localserver.ServerProcess;
@@ -33,6 +34,7 @@ public final class PatchSettings {
             ServerIndex.scanAsync();
         }
         if (InstalledPatches.themeColors()) ThemeRuntime.install(context);
+        if (InstalledPatches.extensions()) ActivityTracker.install(context);
     }
 
     /** The application context Spotify's onCreate passed to {@link #initialize}, or null before then. */

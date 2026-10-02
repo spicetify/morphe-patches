@@ -15,13 +15,18 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class VerifyExtensionsDexTest {
     static final String MENUS = VerifyExtensionsDex.MENU_BRIDGE;
+    static final String CHIPS = VerifyExtensionsDex.CHIP_BRIDGE;
 
     enum Change {
         NONE, NO_HOOKS, MISSING_HOOK, SECOND_HOOK, WRONG_CALLER, WRONG_REGISTER, BEFORE_SCHEDULING, PRIVATE_TARGET,
         MISSING_TRACK_HOOK, TRACK_PASSES_ANOTHER_ROW, TRACK_RESULT_DROPPED, TRACK_AFTER_MODEL, TRACK_BEFORE_FREEZE,
         TRACK_AFTER_ANOTHER_LIST, TRACK_BEFORE_ANOTHER_MODEL, TRACK_IN_ANOTHER_CLASS, ARTIST_WITHOUT_ITS_ROW,
         ARTIST_FROM_ANOTHER_ROW, ARTIST_IN_TRACK_MENU, MISSING_MENU_TARGET, PRIVATE_TRACK_TARGET, CAPABILITY_OFF,
-        CAPABILITY_ON
+        CAPABILITY_ON, MISSING_CHIPS_HOOK, CHIPS_IN_ANOTHER_CLASS, CHIPS_PASS_ANOTHER_REGISTER, CHIPS_RESULT_DROPPED,
+        CHIPS_BEFORE_THE_REWRITE, CHIPS_AFTER_THE_COPY, MISSING_TAP_HOOK, TAP_IN_ANOTHER_CLASS,
+        TAP_PASSES_ANOTHER_REGISTER, TAP_ANSWER_IGNORED, TAP_SKIPS_ELSEWHERE, TAP_AFTER_THE_SEND,
+        TAP_BEFORE_THE_EVENT, MISSING_CHIP_TARGET, PRIVATE_TAP_TARGET, CHIPS_AFTER_ANOTHER_CALL,
+        CHIPS_BEFORE_ANOTHER_COPY, TAP_AFTER_ANOTHER_EVENT, TAP_BRANCHES_ON_ANOTHER_REGISTER, TAP_BEFORE_SOMETHING_ELSE
     }
 
     @Test void acceptsEveryHook() throws Exception { check(Change.NONE, true); }
@@ -48,6 +53,26 @@ class VerifyExtensionsDexTest {
     @Test void rejectsAPrivateMenuTarget() { rejects(Change.PRIVATE_TRACK_TARGET); }
     @Test void rejectsTheCapabilityOffWithThePatch() { rejects(Change.CAPABILITY_OFF); }
     @Test void rejectsTheCapabilityOnWithoutThePatch() { assertThrows(AssertionError.class, () -> check(Change.CAPABILITY_ON, false)); }
+    @Test void rejectsAMissingChipsHook() { rejects(Change.MISSING_CHIPS_HOOK); }
+    @Test void rejectsAChipsHookInAnotherClass() { rejects(Change.CHIPS_IN_ANOTHER_CLASS); }
+    @Test void rejectsAChipsHookThatPassesAnotherRegister() { rejects(Change.CHIPS_PASS_ANOTHER_REGISTER); }
+    @Test void rejectsAChipsHookWhoseListIsDropped() { rejects(Change.CHIPS_RESULT_DROPPED); }
+    @Test void rejectsAChipsHookBeforeSpotifyRewritesTheChips() { rejects(Change.CHIPS_BEFORE_THE_REWRITE); }
+    @Test void rejectsAChipsHookAfterTheChipsAreCopied() { rejects(Change.CHIPS_AFTER_THE_COPY); }
+    @Test void rejectsAMissingTapHook() { rejects(Change.MISSING_TAP_HOOK); }
+    @Test void rejectsATapHookInAnotherClass() { rejects(Change.TAP_IN_ANOTHER_CLASS); }
+    @Test void rejectsATapHookThatPassesAnotherRegister() { rejects(Change.TAP_PASSES_ANOTHER_REGISTER); }
+    @Test void rejectsATapHookWhoseAnswerIsIgnored() { rejects(Change.TAP_ANSWER_IGNORED); }
+    @Test void rejectsATapHookThatSkipsElsewhere() { rejects(Change.TAP_SKIPS_ELSEWHERE); }
+    @Test void rejectsATapHookAfterTheTapIsSent() { rejects(Change.TAP_AFTER_THE_SEND); }
+    @Test void rejectsATapHookBeforeTheTapsEvent() { rejects(Change.TAP_BEFORE_THE_EVENT); }
+    @Test void rejectsAMissingChipBridge() { rejects(Change.MISSING_CHIP_TARGET); }
+    @Test void rejectsAPrivateTapTarget() { rejects(Change.PRIVATE_TAP_TARGET); }
+    @Test void rejectsAChipsHookAfterAnotherCall() { rejects(Change.CHIPS_AFTER_ANOTHER_CALL); }
+    @Test void rejectsAChipsHookBeforeAnotherCopy() { rejects(Change.CHIPS_BEFORE_ANOTHER_COPY); }
+    @Test void rejectsATapHookAfterAnotherEvent() { rejects(Change.TAP_AFTER_ANOTHER_EVENT); }
+    @Test void rejectsATapHookThatBranchesOnAnotherRegister() { rejects(Change.TAP_BRANCHES_ON_ANOTHER_REGISTER); }
+    @Test void rejectsATapHookBeforeSomethingElse() { rejects(Change.TAP_BEFORE_SOMETHING_ELSE); }
 
     void rejects(Change change) {
         assertThrows(AssertionError.class, () -> check(change, true));
@@ -71,6 +96,18 @@ class VerifyExtensionsDexTest {
         boolean capability = change == Change.CAPABILITY_ON || enabled && change != Change.CAPABILITY_OFF;
         classes.add(definition(VerifyExtensionsDex.INSTALLED, method(VerifyExtensionsDex.INSTALLED, "extensions", List.of(), "Z",
             0x09, 1, List.of(new ImmutableInstruction11n(Opcode.CONST_4, 0, capability ? 1 : 0), new ImmutableInstruction11x(Opcode.RETURN, 0)))));
+        boolean chipsMoved = change == Change.CHIPS_IN_ANOTHER_CLASS;
+        classes.add(definition("Lp/qrl;", feeds("Lp/qrl;", chipsMoved ? Change.MISSING_CHIPS_HOOK : change)));
+        if (chipsMoved) classes.add(definition("Lp/elsewhere;", feeds("Lp/elsewhere;", Change.NONE)));
+        boolean tapMoved = change == Change.TAP_IN_ANOTHER_CLASS;
+        classes.add(definition("Lp/a4v;", chipEvents("Lp/a4v;", tapMoved ? Change.MISSING_TAP_HOOK : change)));
+        if (tapMoved) classes.add(definition("Lp/somewhere;", chipEvents("Lp/somewhere;", Change.NONE)));
+        if (change != Change.MISSING_CHIP_TARGET) {
+            classes.add(new ImmutableClassDef(CHIPS, 1, "Ljava/lang/Object;", List.of(), null, Set.of(), List.of(), List.of(
+                target(CHIPS, "chips", List.of("Ljava/util/List;"), "Ljava/util/List;", 0x09),
+                method(CHIPS, "onTap", List.of("Ljava/lang/String;"), "Z", change == Change.PRIVATE_TAP_TARGET ? 0x0a : 0x09,
+                    2, List.of(new ImmutableInstruction11n(Opcode.CONST_4, 0, 0), new ImmutableInstruction11x(Opcode.RETURN, 0))))));
+        }
         if (change == Change.SECOND_HOOK || change == Change.WRONG_CALLER) {
             classes.add(definition("Lp/other;", method("Lp/other;", "run", List.of(), "V", 0x09, 4,
                 List.of(schedule(), bridgeHook(1), new ImmutableInstruction10x(Opcode.RETURN_VOID)))));
@@ -133,6 +170,74 @@ class VerifyExtensionsDexTest {
     /** A build without the patch: no hooks, whatever its capability says. */
     static boolean unhooked(Change change) {
         return change == Change.NO_HOOKS || change == Change.CAPABILITY_ON;
+    }
+
+    /**
+     * Home's feed mapping, Lp/qrl;->invokeSuspend: Lp/xqw;->a rewrites the chips into v1, the chip bridge
+     * replaces them in v1, and a new ArrayList copies them.
+     */
+    ImmutableMethod feeds(String owner, Change change) {
+        var rewrite = List.of(
+            new ImmutableInstruction35c(Opcode.INVOKE_STATIC, 1, 2, 0, 0, 0, 0, new ImmutableMethodReference(
+                change == Change.CHIPS_AFTER_ANOTHER_CALL ? "Lp/other;" : "Lp/xqw;", "a", List.of("Ljava/util/List;"),
+                "Ljava/util/ArrayList;")),
+            new ImmutableInstruction11x(Opcode.MOVE_RESULT_OBJECT, 1));
+        var hook = List.of(
+            new ImmutableInstruction35c(Opcode.INVOKE_STATIC, 1, change == Change.CHIPS_PASS_ANOTHER_REGISTER ? 2 : 1, 0, 0, 0, 0,
+                new ImmutableMethodReference(CHIPS, "chips", List.of("Ljava/util/List;"), "Ljava/util/List;")),
+            new ImmutableInstruction11x(Opcode.MOVE_RESULT_OBJECT, change == Change.CHIPS_RESULT_DROPPED ? 0 : 1));
+        var copy = new ImmutableInstruction21c(Opcode.NEW_INSTANCE, 2, new ImmutableTypeReference(
+            change == Change.CHIPS_BEFORE_ANOTHER_COPY ? "Ljava/util/LinkedList;" : "Ljava/util/ArrayList;"));
+        boolean hooked = !unhooked(change) && change != Change.MISSING_CHIPS_HOOK;
+        List<Instruction> code = new ArrayList<>();
+        if (hooked && change == Change.CHIPS_BEFORE_THE_REWRITE) code.addAll(hook);
+        code.addAll(rewrite);
+        if (hooked && change != Change.CHIPS_BEFORE_THE_REWRITE && change != Change.CHIPS_AFTER_THE_COPY) code.addAll(hook);
+        code.add(copy);
+        if (hooked && change == Change.CHIPS_AFTER_THE_COPY) code.addAll(hook);
+        code.add(new ImmutableInstruction11x(Opcode.RETURN_OBJECT, 2));
+        return method(owner, "invokeSuspend", List.of("Ljava/lang/Object;"), "Ljava/lang/Object;", 0x01, 5, code);
+    }
+
+    /**
+     * Home's chip events, Lp/a4v;->invoke: a tap's Lp/q8w; is built from the chip's id in v1, the chip bridge
+     * takes the id and skips to the case's return-object v13 when it handled the tap, and otherwise the event
+     * goes to Home's loop, Lp/bay;->invoke.
+     */
+    ImmutableMethod chipEvents(String owner, Change change) {
+        String type = change == Change.TAP_AFTER_ANOTHER_EVENT ? "Lp/other;" : "Lp/q8w;";
+        var event = List.of(
+            new ImmutableInstruction21c(Opcode.NEW_INSTANCE, 2, new ImmutableTypeReference(type)),
+            new ImmutableInstruction35c(Opcode.INVOKE_DIRECT, 2, 2, 1, 0, 0, 0,
+                new ImmutableMethodReference(type, "<init>", List.of("Ljava/lang/String;"), "V")));
+        var send = new ImmutableInstruction35c(Opcode.INVOKE_VIRTUAL, 2, 3, 2, 0, 0, 0,
+            new ImmutableMethodReference("Lp/bay;", "invoke", List.of("Ljava/lang/Object;"), "Ljava/lang/Object;"));
+        boolean hooked = !unhooked(change) && change != Change.MISSING_TAP_HOOK;
+        // A branch counts code units from the if-nez: itself 2, the event 2 and 3, a nop 1, the send 3 and the
+        // goto 1. TAP_SKIPS_ELSEWHERE lands on the goto instead of the return.
+        boolean nop = change == Change.TAP_BEFORE_SOMETHING_ELSE;
+        List<Instruction> code = new ArrayList<>();
+        if (hooked && change == Change.TAP_BEFORE_THE_EVENT) code.addAll(tapHook(change, 2 + 5 + 3 + 1));
+        code.addAll(event);
+        if (hooked && change != Change.TAP_BEFORE_THE_EVENT && change != Change.TAP_AFTER_THE_SEND) {
+            code.addAll(tapHook(change, change == Change.TAP_SKIPS_ELSEWHERE ? 2 + 3 : 2 + (nop ? 1 : 0) + 3 + 1));
+        }
+        if (nop) code.add(new ImmutableInstruction10x(Opcode.NOP));
+        code.add(send);
+        if (hooked && change == Change.TAP_AFTER_THE_SEND) code.addAll(tapHook(change, 2 + 1));
+        code.add(new ImmutableInstruction10t(Opcode.GOTO, 1));
+        code.add(new ImmutableInstruction11x(Opcode.RETURN_OBJECT, 13));
+        return method(owner, "invoke", List.of("Ljava/lang/Object;", "Ljava/lang/Object;"), "Ljava/lang/Object;", 0x01, 16, code);
+    }
+
+    /** B: the chip's id in v1 goes to the chip bridge, whose answer, when true, branches {@code offset} code units on. */
+    List<Instruction> tapHook(Change change, int offset) {
+        return List.of(
+            new ImmutableInstruction35c(Opcode.INVOKE_STATIC, 1, change == Change.TAP_PASSES_ANOTHER_REGISTER ? 2 : 1, 0, 0, 0, 0,
+                new ImmutableMethodReference(CHIPS, "onTap", List.of("Ljava/lang/String;"), "Z")),
+            new ImmutableInstruction11x(Opcode.MOVE_RESULT, 1),
+            new ImmutableInstruction21t(change == Change.TAP_ANSWER_IGNORED ? Opcode.IF_EQZ : Opcode.IF_NEZ,
+                change == Change.TAP_BRANCHES_ON_ANOTHER_REGISTER ? 2 : 1, offset));
     }
 
     ImmutableInstruction3rc bridgeHook(int register) {

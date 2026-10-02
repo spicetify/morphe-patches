@@ -2,10 +2,12 @@ package app.spicetify.extension.spotify.extensions;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotSame;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 
+import android.app.Activity;
 import android.content.Context;
 import app.spicetify.extension.spotify.settings.PatchSettings;
 import java.util.ArrayList;
@@ -14,6 +16,7 @@ import java.util.Collections;
 import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.robolectric.Robolectric;
 import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
 import org.robolectric.annotation.Config;
@@ -95,7 +98,7 @@ public class ExtensionsTest {
         assertEquals(Collections.singletonList(Extensions.RANDOM_SONG), Extensions.androidOnly());
         assertNull(Extensions.port("spicetify/cli/Extensions/random.js"));
         assertEquals("Play a random song", Extensions.title(Extensions.RANDOM_SONG));
-        assertEquals("Play one random song from all of Spotify or from your library.",
+        assertEquals("Tap Random on Home, next to All, to play one random song from all of Spotify or from your library.",
                 Extensions.description(Extensions.RANDOM_SONG));
     }
 
@@ -113,6 +116,15 @@ public class ExtensionsTest {
         assertEquals("On", Extensions.latestStatus("test_quiet"));
         Extensions.status("test_reporting", "Skipped spotify:track:a");
         assertEquals("Skipped spotify:track:a", Extensions.latestStatus("test_reporting"));
+    }
+
+    @Test
+    public void spotifysStartupTracksNoActivityWithoutTheExtensionsPatch() {
+        // A tracker an earlier test started belongs to that test's application, so it can't see this Activity.
+        PatchSettings.initialize(context);
+        Activity home = Robolectric.buildActivity(Activity.class).setup().get();
+
+        assertNotSame(home, ActivityTracker.resumed());
     }
 
     @Test

@@ -22,18 +22,21 @@ import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
 
-/** A bottom sheet matching Spotify's confirmation sheets: grab handle, centred title and message, stacked buttons. */
-final class SpotifySheet extends Dialog {
+/**
+ * A bottom sheet matching Spotify's confirmation sheets: grab handle, centred title and message, stacked buttons.
+ * Public for the extensions' sheets outside settings, such as Home's Random chooser.
+ */
+public final class SpotifySheet extends Dialog {
 
     /** Returns true to dismiss the sheet after the click. */
-    interface Action {
+    public interface Action {
         boolean onClick();
     }
 
     private final LinearLayout content;
     private final LinearLayout buttons;
 
-    SpotifySheet(Context context, String title, String message) {
+    public SpotifySheet(Context context, String title, String message) {
         super(context, android.R.style.Theme_Material_Dialog_NoActionBar);
         // Settings pages pass a themed wrapper of Spotify's activity; the owner supplies the bottom inset.
         Context owner = context;
@@ -109,7 +112,7 @@ final class SpotifySheet extends Dialog {
         return this;
     }
 
-    SpotifySheet primary(String label, Action action) {
+    public SpotifySheet primary(String label, Action action) {
         Button button = new Button(getContext());
         button.setText(label);
         SpotifyStyle.style(button, true);
@@ -119,7 +122,7 @@ final class SpotifySheet extends Dialog {
         return this;
     }
 
-    SpotifySheet secondary(String label) {
+    public SpotifySheet secondary(String label) {
         Context context = getContext();
         Button button = new Button(context);
         button.setText(label);
