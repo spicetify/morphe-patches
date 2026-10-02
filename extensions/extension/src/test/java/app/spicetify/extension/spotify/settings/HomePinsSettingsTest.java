@@ -38,12 +38,14 @@ import org.robolectric.shadows.ShadowToast;
 import static org.junit.Assert.*;
 
 @RunWith(RobolectricTestRunner.class)
-@Config(sdk = 35, manifest = Config.NONE, shadows = HomePinsSettingsTest.Capabilities.class)
+// A phone tall enough to show the sheet and a few rows.
+@Config(sdk = 35, manifest = Config.NONE, qualifiers = "h800dp", shadows = HomePinsSettingsTest.Capabilities.class)
 public class HomePinsSettingsTest {
     private static final String LOADING = "Loading your library";
     private static final String UNAVAILABLE = "Your library isn't available yet";
     private static final String A = "spotify:playlist:a";
     private static final String B = "spotify:playlist:b";
+    private static final String C = "spotify:playlist:c";
 
     @Implements(value = InstalledPatches.class, isInAndroidSdk = false)
     public static class Capabilities {
@@ -115,13 +117,73 @@ public class HomePinsSettingsTest {
         tap(picker, 1);
         search.setText("");
 
-        assertEquals(Arrays.asList("mix a", "Mix B", "Road trip"), rows(picker));
+        assertEquals(Arrays.asList("mix a", "1. Mix B", "Road trip"), rows(picker));
         assertEquals(Arrays.asList(false, true, false), checked(picker));
         search.setText("a"); // Road trip takes Mix B's place in the list, unticked
         assertEquals(Arrays.asList("mix a", "Road trip"), rows(picker));
         assertEquals(Arrays.asList(false, false), checked(picker));
         button(picker, "Save").performClick(); // while the search hides the pick
         assertEquals(Arrays.asList("spotify:playlist:mixb"), pinned());
+    }
+
+    @Test public void picksAreSavedInTheOrderTheyWereTickedAndHomeShowsThemSo() throws Exception {
+        Dialog picker = openWithoutTheLibrary();
+
+        tap(picker, 2);
+        tap(picker, 0);
+        tap(picker, 1);
+
+        assertEquals(Arrays.asList("2. Alpha", "3. Bravo", "1. Charlie"), rows(picker));
+        assertEquals("the rows on screen too", Arrays.asList("2. Alpha", "3. Bravo", "1. Charlie"), onScreen(picker));
+        button(picker, "Save").performClick();
+        assertEquals(Arrays.asList(C, A, B), pinned());
+        ArrayList<Object> home = new ArrayList<>();
+        for (String uri : new String[]{A, B, C}) home.add(new p.goz0(new p.nnz0(uri, 2, uri, "", false, uri)));
+        List<String> shown = new ArrayList<>();
+        for (Object row : HomePins.plan("home-shortcuts", home)) shown.add(((p.goz0) row).a.d);
+        assertEquals("Home shows pin 1 first", Arrays.asList(C, A, B), shown);
+    }
+
+    @Test public void thePinsKeepTheirOrderAndNewPicksComeAfterThem() throws Exception {
+        Dialog picker = openWithoutTheLibrary(B, A);
+        assertEquals(Arrays.asList("1. Bravo", "2. Alpha", "Charlie"), rows(picker));
+
+        tap(picker, 2);
+
+        assertEquals(Arrays.asList("1. Bravo", "2. Alpha", "3. Charlie"), rows(picker));
+        button(picker, "Save").performClick();
+        assertEquals(Arrays.asList(B, A, C), pinned());
+    }
+
+    @Test public void untickingRemovesAPickAndRenumbersTheRestWhichTheNextPickerShows() throws Exception {
+        Dialog picker = openWithoutTheLibrary(B, A, C);
+        onScreen(picker);
+
+        tap(picker, 0);
+
+        assertEquals(Arrays.asList("Bravo", "1. Alpha", "2. Charlie"), rows(picker));
+        assertEquals("the rows on screen too", Arrays.asList("Bravo", "1. Alpha", "2. Charlie"), onScreen(picker));
+        button(picker, "Save").performClick();
+        assertEquals(Arrays.asList(A, C), pinned());
+        Dialog again = openPicker();
+        awaitNote(again, UNAVAILABLE);
+        assertEquals(Arrays.asList("1. Alpha", "2. Charlie", "Bravo"), rows(again));
+    }
+
+    @Test public void aSearchNeverChangesThePickOrder() throws Exception {
+        Dialog picker = openWithoutTheLibrary();
+        EditText search = find(picker.getWindow().getDecorView(), EditText.class);
+
+        tap(picker, 2);
+        search.setText("alp");
+        assertEquals(Arrays.asList("Alpha"), rows(picker));
+        tap(picker, 0);
+        search.setText("");
+
+        assertEquals(Arrays.asList("2. Alpha", "Bravo", "1. Charlie"), rows(picker));
+        assertEquals(Arrays.asList(true, false, true), checked(picker));
+        button(picker, "Save").performClick();
+        assertEquals(Arrays.asList(C, A), pinned());
     }
 
     @Test public void aTouchOnARowTicksIt() throws Exception {
@@ -229,6 +291,16 @@ public class HomePinsSettingsTest {
 
         assertFalse("saved without a complaint", picker.isShowing());
         assertTrue(pinned().isEmpty());
+    }
+
+    /** Opens the picker over Home's tiles Alpha, Bravo and Charlie, with no library, once {@code pins} are pinned. */
+    private Dialog openWithoutTheLibrary(String... pins) throws Exception {
+        PlayerBridgeTest.attachRouter(true);
+        observe(new String[]{A, B, C}, new String[]{"Alpha", "Bravo", "Charlie"});
+        HomePins.setPinned(Arrays.asList(pins));
+        Dialog picker = openPicker();
+        awaitNote(picker, UNAVAILABLE);
+        return picker;
     }
 
     /** Opens the Home and navigation page over a new activity and taps "Pinned Home shortcuts". */

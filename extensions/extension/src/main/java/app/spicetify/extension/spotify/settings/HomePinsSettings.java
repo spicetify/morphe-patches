@@ -21,6 +21,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -31,7 +32,9 @@ import java.util.Set;
  * pins, Home's tiles and Your Library, which HomePins orders, as checkbox rows, with a search field.
  * It opens with the pins and Home's tiles, and the library joins them once the player bridge reads
  * it. The list makes rows only for what's on screen and reuses them, so a large library and each
- * search stay quick. Picks are kept by uri, so a search never loses one.
+ * search stay quick. Picks are kept by uri in the order they were ticked, after the pins in theirs,
+ * and a ticked row shows its place, so a search never loses or reorders one. Save pins them in that
+ * order.
  */
 final class HomePinsSettings {
     private static final String LOADING = "Loading your library";
@@ -39,7 +42,7 @@ final class HomePinsSettings {
 
     private final SpicetifySettingsScreen screen;
     private final List<HomePins.Choice> choices = new ArrayList<>(HomePins.choices());
-    private final Set<String> picked = new HashSet<>();
+    private final Set<String> picked = new LinkedHashSet<>();
     /** How many choices have each name, so that a name two share can show each one's uri too. */
     private final Map<String, Integer> named = new HashMap<>();
     private final EditText search;
@@ -49,7 +52,7 @@ final class HomePinsSettings {
 
     static void build(SpicetifySettingsScreen screen, LinearLayout content) {
         SpotifyStyle.actionRow(content, "Pinned Home shortcuts",
-                "Choose playlists, albums or Liked Songs to show first on Home.",
+                "Choose playlists, albums or Liked Songs to show first on Home, in the order you pick them.",
                 view -> new HomePinsSettings(screen).open());
     }
 
@@ -83,6 +86,7 @@ final class HomePinsSettings {
             String choice = rows.getItem(position).id;
             if (list.isItemChecked(position)) picked.add(choice);
             else picked.remove(choice);
+            rows.notifyDataSetChanged(); // the places after it change
         });
     }
 
@@ -147,12 +151,10 @@ final class HomePinsSettings {
         list.setLayoutParams(params);
     }
 
-    /** Pins the picks, the pins first in their order, then the rest as listed, and offers a restart. */
+    /** Pins the picks in the order they were ticked, and offers a restart. */
     private boolean save() {
-        List<String> ids = new ArrayList<>();
-        for (HomePins.Choice choice : choices) if (picked.contains(choice.id)) ids.add(choice.id);
         try {
-            HomePins.setPinned(ids);
+            HomePins.setPinned(new ArrayList<>(picked));
         } catch (IllegalArgumentException refused) {
             note.setText(refused.getMessage());
             note.setVisibility(View.VISIBLE);
@@ -187,7 +189,9 @@ final class HomePinsSettings {
                 box.setFocusable(false);
             }
             HomePins.Choice choice = shown.get(position);
-            box.setText(named.get(choice.label) > 1 ? choice.label + "\n" + choice.id : choice.label);
+            String text = named.get(choice.label) > 1 ? choice.label + "\n" + choice.id : choice.label;
+            int place = new ArrayList<>(picked).indexOf(choice.id);
+            box.setText(place < 0 ? text : (place + 1) + ". " + text);
             return box;
         }
     }
