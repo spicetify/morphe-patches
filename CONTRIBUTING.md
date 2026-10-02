@@ -125,6 +125,12 @@ patching; `verify-failures.py --case changed-brand-ad-model` checks that refusal
 without modifying your stock APK. Runtime removal still needs a visible ad
 and an on/off comparison on a Free account.
 
+Add `--extensions` for **Spicetify extensions**. Its checker verifies that
+Spotify's `SharedCosmosRouterService` hands itself to the player bridge right
+after its native router starts scheduling, and that no hook is present without
+the patch. The patch also checks each player message field number the bridge
+reads; `verify-failures.py --case changed-player-protocol` checks that refusal.
+
 Check refusal paths against the same stock base APK and bundle:
 
 ```sh
