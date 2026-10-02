@@ -28,13 +28,13 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * The Home shortcuts rows of the Home and navigation page, and their picker: a sheet listing the
- * pins, Home's tiles and Your Library, which HomePins orders, as checkbox rows, with a search field.
- * It opens with the pins and Home's tiles, and the library joins them once the player bridge reads
- * it. The list makes rows only for what's on screen and reuses them, so a large library and each
- * search stay quick. Picks are kept by uri in the order they were ticked, after the pins in theirs,
- * and a ticked row shows its place, so a search never loses or reorders one. Save pins them in that
- * order.
+ * The Home shortcuts rows of the Home and navigation page: the picker, and Show only my pins. The
+ * picker is a sheet listing the pins, Home's tiles and Your Library, which HomePins orders, as
+ * checkbox rows, with a search field. It opens with the pins and Home's tiles, and the library joins
+ * them once the player bridge reads it. The list makes rows only for what's on screen and reuses
+ * them, so a large library and each search stay quick. Picks are kept by uri in the order they were
+ * ticked, after the pins in theirs, and a ticked row shows its place, so a search never loses or
+ * reorders one. Save pins them in that order.
  */
 final class HomePinsSettings {
     private static final String LOADING = "Loading your library";
@@ -54,6 +54,11 @@ final class HomePinsSettings {
         SpotifyStyle.actionRow(content, "Pinned Home shortcuts",
                 "Choose playlists, albums or Liked Songs to show first on Home, in the order you pick them.",
                 view -> new HomePinsSettings(screen).open());
+        SpotifyStyle.toggleRow(content, "Show only my pins", "Hide Spotify's other shortcuts on Home.",
+                HomePins.onlyPins(), (button, enabled) -> {
+                    HomePins.setOnlyPins(enabled);
+                    screen.refreshRestartBar();
+                });
     }
 
     private HomePinsSettings(SpicetifySettingsScreen screen) {

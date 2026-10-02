@@ -15,14 +15,15 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 /**
- * Puts the pinned shortcuts first on Home, and plans a tile for a pin Spotify left out, which HomeTileBridge
- * builds. It never retains native tile objects.
+ * Puts the pinned shortcuts first on Home, or shows only them, and plans a tile for a pin Spotify left out,
+ * which HomeTileBridge builds. It never retains native tile objects.
  */
 public final class HomePins {
     private static final int MAX_SHORTCUTS = 64;
     /** Spotify's own cap on the shortcuts grid: Lp/jne1;->u takes 10 tiles before the hook sees them. */
     private static final int MAX_TILES = 10;
     private static SharedPreferences preferences;
+    private static boolean onlyPins;
     private static final LinkedHashMap<String, Pin> pins = new LinkedHashMap<>();
     private static final LinkedHashMap<String, String> observed = new LinkedHashMap<>();
     private static final LinkedHashMap<String, Pin> offered = new LinkedHashMap<>();
@@ -54,6 +55,7 @@ public final class HomePins {
 
     public static synchronized void initialize(Context context) {
         preferences = context.getApplicationContext().getSharedPreferences("spicetify_home_pins", Context.MODE_PRIVATE);
+        onlyPins = preferences.getBoolean("only_pins", false);
         observed.clear();
         offered.clear();
         pins.clear();
@@ -148,6 +150,18 @@ public final class HomePins {
         pins.putAll(selected);
     }
 
+    /** Whether the shortcuts section shows only the pins, once one is placed. Off until switched on. */
+    public static synchronized boolean onlyPins() {
+        return onlyPins;
+    }
+
+    /** Saves "Show only my pins", which {@link #plan} reads from memory. */
+    public static synchronized void setOnlyPins(boolean only) {
+        if (preferences == null) throw new IllegalStateException("Home pins are not initialized.");
+        preferences.edit().putBoolean("only_pins", only).apply();
+        onlyPins = only;
+    }
+
     /** Saves {@code selected} as the pins, each {uri, title, image}, leaving out a title or cover it doesn't know. */
     private static void save(Map<String, Pin> selected) {
         JSONArray saved = new JSONArray();
@@ -195,6 +209,8 @@ public final class HomePins {
      * {@code rows} in {@link #captureAndOrder}'s order. With {@code shortcuts}, a pin that no row stands for gets a
      * tile in its place among the pins, unless a row already opens its uri (the grid keys rows by link) or its title
      * is unknown. Then the list is cut to Spotify's length, or the pins' if longer, and never past Spotify's cap.
+     * With {@link #onlyPins}, it's cut to the pins' rows instead, unless none is placed, so the grid never empties.
+     * A row that opens a pin but stands for an entity no pin names then moves into that pin's place, so it stays.
      */
     private static synchronized List<Object> arrange(
             boolean shortcuts, List<?> rows, String[] links, String[] ids, String[] titles) {
@@ -203,17 +219,27 @@ public final class HomePins {
         if (!shortcuts) return result;
         List<String> keys = Arrays.asList(links);
         List<String> entities = Arrays.asList(ids);
+        boolean placed = false; // whether a pin has a row of its own, or gets a tile below
+        for (Map.Entry<String, Pin> pin : pins.entrySet()) {
+            placed |= entities.contains(pin.getKey()) || (pin.getValue().title != null && !keys.contains(pin.getKey()));
+        }
+        boolean pinsAlone = onlyPins && placed;
         int place = 0; // the pins' rows lead, in pin order, so this walks through them
         for (Map.Entry<String, Pin> pin : pins.entrySet()) {
             int shown = Collections.frequency(entities, pin.getKey());
+            int opens = keys.indexOf(pin.getKey());
             Pin saved = pin.getValue();
-            if (shown == 0 && saved.title != null && !keys.contains(pin.getKey())) {
+            if (shown == 0 && opens < 0 && saved.title != null) {
                 // Spotify's renderers call Uri.parse on the image, which throws on null.
                 result.add(place++, new String[] {pin.getKey(), saved.title, saved.image == null ? "" : saved.image});
+            } else if (shown == 0 && opens >= 0 && pinsAlone && !pins.containsKey(ids[opens])) {
+                // That row is among Spotify's unpinned ones, which the cut drops.
+                Object row = rows.get(opens);
+                if (result.remove(row)) result.add(place++, row);
             }
             place += shown;
         }
-        int limit = Math.min(MAX_TILES, Math.max(rows.size(), place));
+        int limit = Math.min(MAX_TILES, pinsAlone ? place : Math.max(rows.size(), place));
         return result.size() > limit ? new ArrayList<>(result.subList(0, limit)) : result;
     }
 

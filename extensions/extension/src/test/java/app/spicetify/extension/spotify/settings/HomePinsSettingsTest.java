@@ -11,7 +11,9 @@ import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.EditText;
+import android.widget.LinearLayout;
 import android.widget.ListView;
+import android.widget.Switch;
 import android.widget.TextView;
 import app.spicetify.extension.spotify.extensions.LibraryTest;
 import app.spicetify.extension.spotify.extensions.PlayerBridgeTest;
@@ -279,6 +281,46 @@ public class HomePinsSettingsTest {
         assertFalse(PatchSettings.restartRequired());
     }
 
+    @Test public void showOnlyMyPinsIsASwitchUnderThePickerThatHomeReadsAtStart() {
+        View page = homePage();
+        Switch only = onlyPins(page);
+        LinearLayout content = (LinearLayout) row(only).getParent();
+        int at = content.indexOfChild(row(only));
+        assertSame("under the picker's row", choose(page), content.getChildAt(at - 1));
+        assertFalse("off by default", only.isChecked());
+
+        only.performClick();
+
+        assertTrue("saved", stored().getBoolean("only_pins", false));
+        HomePins.initialize(RuntimeEnvironment.getApplication()); // Spotify's next start
+        assertTrue("Home reads it at start", HomePins.onlyPins());
+        Switch again = onlyPins(homePage());
+        assertTrue("still on after a restart", again.isChecked());
+        again.performClick();
+        assertFalse("saved off", stored().getBoolean("only_pins", true));
+    }
+
+    @Test public void theRestartBarFollowsShowOnlyMyPins() {
+        View page = homePage();
+        Switch only = onlyPins(page);
+        assertEquals(View.GONE, restartBar(page).getVisibility());
+
+        only.performClick();
+        assertEquals("Home reads it at start", View.VISIBLE, restartBar(page).getVisibility());
+        only.performClick();
+        assertEquals("back as Spotify started", View.GONE, restartBar(page).getVisibility());
+    }
+
+    @Test public void spotifyStartingWithShowOnlyMyPinsOnNeedsNoRestart() {
+        stored().edit().putBoolean("only_pins", true).commit();
+
+        PatchSettings.initialize(RuntimeEnvironment.getApplication()); // Spotify's next start
+
+        assertTrue(HomePins.onlyPins());
+        assertFalse(PatchSettings.restartRequired());
+        assertEquals(View.GONE, restartBar(homePage()).getVisibility());
+    }
+
     @Test public void aPickThatLeavesTheListWhenTheLibraryComesIsDropped() throws Exception {
         LibraryTest.attachLibrary(new String[]{"spotify:playlist:road", "Road trip", null});
         observe(new String[]{A, B}, new String[]{"Alpha", "Bravo"});
@@ -291,6 +333,27 @@ public class HomePinsSettingsTest {
 
         assertFalse("saved without a complaint", picker.isShowing());
         assertTrue(pinned().isEmpty());
+    }
+
+    /** Opens the Home and navigation page over a new activity and returns its views. */
+    private static View homePage() {
+        SpicetifySettingsScreen.open(Robolectric.buildActivity(Activity.class).setup().get(), SpicetifySettingsScreen.PAGE_HOME);
+        return ShadowDialog.getLatestDialog().getWindow().getDecorView();
+    }
+
+    /** The page's "Show only my pins" switch, which his toggle rows describe by title and description. */
+    private static Switch onlyPins(View page) {
+        List<Switch> switches = new ArrayList<>();
+        collect(page, Switch.class, switches);
+        for (Switch toggle : switches) {
+            if (String.valueOf(toggle.getContentDescription()).startsWith("Show only my pins. ")) return toggle;
+        }
+        throw new AssertionError("the page has no Show only my pins switch");
+    }
+
+    /** The toggle row that holds {@code toggle}. */
+    private static View row(Switch toggle) {
+        return (View) toggle.getParent();
     }
 
     /** Opens the picker over Home's tiles Alpha, Bravo and Charlie, with no library, once {@code pins} are pinned. */

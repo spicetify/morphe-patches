@@ -26,9 +26,9 @@ public final class PatchSettings {
         if (InstalledPatches.serverFiles() && ServerProcess.skipApplication(context)) return;
         applicationContext = context.getApplicationContext();
         preferences = applicationContext.getSharedPreferences(FILE, Context.MODE_PRIVATE);
+        if (InstalledPatches.homePins()) HomePins.initialize(context);
         startupState = restartState();
         restartMarked = false;
-        if (InstalledPatches.homePins()) HomePins.initialize(context);
         if (InstalledPatches.serverFiles()) {
             ServerConfig.initialize(context);
             ServerIndex.scanAsync();
@@ -53,7 +53,8 @@ public final class PatchSettings {
     }
 
     private static String restartState() {
-        return hidePremiumTabEnabled() + "|" + hideBrandAdsEnabled() + "|" + hidePlayerAdCardsEnabled();
+        return hidePremiumTabEnabled() + "|" + hideBrandAdsEnabled() + "|" + hidePlayerAdCardsEnabled()
+                + "|" + HomePins.onlyPins();
     }
 
     public static boolean cleanSharingEnabled() {

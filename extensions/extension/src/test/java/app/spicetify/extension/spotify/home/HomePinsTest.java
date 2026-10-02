@@ -162,6 +162,120 @@ public class HomePinsTest {
         assertEquals(Arrays.asList("new Road trip", "C", "A"), describe(HomePins.plan(SHORTCUTS, rows), rows));
     }
 
+    @Test public void withOnlyPinsTheShortcutsShowThePinsAloneInPinOrder() {
+        ArrayList<Object> rows = rows(row(A, "A"), row(B, "B"), row(C, "C"), row(D, "D"));
+        HomePins.plan(SHORTCUTS, rows);
+        HomePins.choices(Collections.singletonList(new Library.Item(X, "Road trip", "spotify:image:x", false)));
+        HomePins.setPinned(Arrays.asList(C, X, A));
+
+        HomePins.setOnlyPins(true);
+
+        // Spotify's B and D go, and Road trip is a tile Spotify didn't send.
+        assertEquals(Arrays.asList("C", "new Road trip", "A"), describe(HomePins.plan(SHORTCUTS, rows), rows));
+    }
+
+    @Test public void withOnlyPinsButNoPinPlacedSpotifysRowsStay() {
+        // X has no title for a tile, and a row already opens A for another entity, so neither pin is placed.
+        application.getSharedPreferences("spicetify_home_pins", 0).edit().putString("pins",
+                "[{\"uri\":\"" + X + "\"},{\"uri\":\"" + A + "\",\"title\":\"A\"}]").commit();
+        HomePins.initialize(application);
+        HomePins.setOnlyPins(true);
+        ArrayList<Object> rows = rows(row(A, "spotify:playlist:e", "Opens A"), row(B, "B"), row(C, "C"));
+
+        assertEquals(Arrays.asList("Opens A", "B", "C"), describe(HomePins.plan(SHORTCUTS, rows), rows));
+        HomePins.setPinned(Collections.emptyList());
+        assertEquals("nor with no pins at all", Arrays.asList("Opens A", "B", "C"),
+                describe(HomePins.plan(SHORTCUTS, rows), rows));
+    }
+
+    @Test public void withOnlyPinsARowThatOpensAPinForAnotherEntityStaysInThatPinsPlace() {
+        // The second row stands for e but opens A, so A gets no tile of its own: that row is A's on Home.
+        ArrayList<Object> rows = rows(row(B, "B"), row(A, "spotify:playlist:e", "Opens A"), row(C, "C"), row(D, "D"));
+        String c = "{\"uri\":\"" + C + "\",\"title\":\"C\"}";
+        String d = "{\"uri\":\"" + D + "\",\"title\":\"D\"}";
+        SharedPreferences saved = application.getSharedPreferences("spicetify_home_pins", 0);
+        saved.edit().putString("pins", "[" + c + ",{\"uri\":\"" + A + "\",\"title\":\"A\"}," + d + "]").commit();
+        HomePins.initialize(application);
+        assertEquals("off, it stays where Spotify put it", Arrays.asList("C", "D", "B", "Opens A"),
+                describe(HomePins.plan(SHORTCUTS, rows), rows));
+
+        HomePins.setOnlyPins(true);
+
+        assertEquals(Arrays.asList("C", "Opens A", "D"), describe(HomePins.plan(SHORTCUTS, rows), rows));
+        saved.edit().putString("pins", "[" + c + ",{\"uri\":\"" + A + "\"}," + d + "]").commit();
+        HomePins.initialize(application);
+        assertEquals("a pin without a title keeps it too", Arrays.asList("C", "Opens A", "D"),
+                describe(HomePins.plan(SHORTCUTS, rows), rows));
+    }
+
+    @Test public void withOnlyPinsARowThatOpensOnePinButStandsForAnotherIsKeptOnce() {
+        // The first row opens Liked Songs but stands for F, which is pinned too, so it's F's row.
+        String f = "spotify:playlist:f";
+        ArrayList<Object> rows = rows(row("spotify:user:me:collection", f, "F"), row(B, "B"), row(C, "C"));
+        application.getSharedPreferences("spicetify_home_pins", 0).edit().putString("pins",
+                "[{\"uri\":\"spotify:collection:tracks\",\"title\":\"Liked Songs\"},{\"uri\":\"" + f
+                        + "\",\"title\":\"F\"},{\"uri\":\"" + C + "\",\"title\":\"C\"}]").commit();
+        HomePins.initialize(application);
+
+        HomePins.setOnlyPins(true);
+
+        assertEquals("Spotify's B stays out", Arrays.asList("F", "C"), describe(HomePins.plan(SHORTCUTS, rows), rows));
+    }
+
+    @Test public void withOnlyPinsOffTheShortcutsKeepSpotifysOtherRows() {
+        ArrayList<Object> rows = rows(row(A, "A"), row(B, "B"), row(C, "C"), row(D, "D"));
+        HomePins.plan(SHORTCUTS, rows);
+        HomePins.choices(Collections.singletonList(new Library.Item(X, "Road trip", "spotify:image:x", false)));
+        HomePins.setPinned(Arrays.asList(C, X, A));
+        List<String> asBefore = Arrays.asList("C", "new Road trip", "A", "B");
+
+        assertFalse("off until switched on", HomePins.onlyPins());
+        assertEquals(asBefore, describe(HomePins.plan(SHORTCUTS, rows), rows));
+        HomePins.setOnlyPins(true);
+        HomePins.setOnlyPins(false);
+        assertEquals("switched off again", asBefore, describe(HomePins.plan(SHORTCUTS, rows), rows));
+    }
+
+    @Test public void onlyPinsLeavesOtherSectionsTheirRows() {
+        ArrayList<Object> rows = rows(row(A, "A"), row(B, "B"), row(C, "C"));
+        HomePins.plan("anchors", rows);
+        HomePins.choices(Collections.singletonList(new Library.Item(X, "Road trip", "spotify:image:x", false)));
+        HomePins.setPinned(Arrays.asList(X, C));
+
+        HomePins.setOnlyPins(true);
+
+        for (String section : Arrays.asList("anchors", "wrapped", null)) {
+            assertEquals(section, Arrays.asList("C", "A", "B"), describe(HomePins.plan(section, rows), rows));
+        }
+        assertEquals(Arrays.asList("new Road trip", "C"), describe(HomePins.plan(SHORTCUTS, rows), rows));
+    }
+
+    @Test public void onlyPinsNeverPassesTen() {
+        List<Library.Item> library = new ArrayList<>();
+        List<String> saved = new ArrayList<>();
+        List<String> ten = new ArrayList<>();
+        for (int i = 0; i < 12; i++) {
+            library.add(new Library.Item("spotify:playlist:p" + i, "P" + i, "spotify:image:p" + i, false));
+            saved.add("spotify:playlist:p" + i);
+            if (i < 10) ten.add("new P" + i);
+        }
+        HomePins.choices(library);
+        HomePins.setPinned(saved);
+        HomePins.setOnlyPins(true);
+        ArrayList<Object> rows = rows(row(A, "A"), row(B, "B"), row(C, "C"));
+
+        assertEquals(ten, describe(HomePins.plan(SHORTCUTS, rows), rows));
+    }
+
+    @Test public void onlyPinsIsSavedForHomeToReadAtStart() {
+        SharedPreferences saved = application.getSharedPreferences("spicetify_home_pins", 0);
+        HomePins.setOnlyPins(true);
+        assertTrue("saved", saved.getBoolean("only_pins", false));
+        saved.edit().putBoolean("only_pins", false).commit();
+        HomePins.initialize(application); // Spotify's next start
+        assertFalse("read from what's saved", HomePins.onlyPins());
+    }
+
     @Test public void theGridKeepsSpotifysSizeUnlessThePinsNeedMoreButNeverPassesTen() {
         List<Library.Item> library = new ArrayList<>();
         List<String> saved = new ArrayList<>();
