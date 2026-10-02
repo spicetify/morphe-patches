@@ -443,10 +443,15 @@ public class RandomSongTest {
 
     /** Waits for Play a random song's latest status to read {@code line}. */
     static void awaitStatus(String line) throws InterruptedException {
+        awaitStatus(Extensions.RANDOM_SONG, line);
+    }
+
+    /** Waits for extension {@code id}'s latest status to read {@code line}. */
+    static void awaitStatus(String id, String line) throws InterruptedException {
         long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(CEILING_SECONDS);
-        while (!line.equals(Extensions.latestStatus(Extensions.RANDOM_SONG))) {
+        while (!line.equals(Extensions.latestStatus(id))) {
             assertTrue("no status \"" + line + "\" within " + CEILING_SECONDS + " s: "
-                    + Extensions.latestStatus(Extensions.RANDOM_SONG), System.nanoTime() < deadline);
+                    + Extensions.latestStatus(id), System.nanoTime() < deadline);
             Thread.sleep(10);
         }
     }
@@ -470,7 +475,12 @@ public class RandomSongTest {
     }
 
     /** A {@code PlaylistGetResponse} with status 200, the playable {@code length} and {@code uris} as its items. */
-    private static byte[] playlistPage(int length, String... uris) {
+    static byte[] playlistPage(int length, String... uris) {
+        return playlistPage(false, length, uris);
+    }
+
+    /** The same, with {@code loading_contents} set when the core is still loading the list. */
+    static byte[] playlistPage(boolean loading, int length, String... uris) {
         Wire.Writer status = new Wire.Writer();
         status.varint(1, 200);
         Wire.Writer data = new Wire.Writer();
@@ -480,6 +490,7 @@ public class RandomSongTest {
             data.message(1, item);
         }
         data.varint(4, length);
+        if (loading) data.bool(6, true);
         Wire.Writer response = new Wire.Writer();
         response.message(1, status);
         response.message(2, data);
@@ -487,7 +498,7 @@ public class RandomSongTest {
     }
 
     /** A {@code GetEntityResponse} for an album with one disc of the tracks {@code gids}. */
-    private static byte[] albumTracks(byte[]... gids) {
+    static byte[] albumTracks(byte[]... gids) {
         Wire.Writer disc = new Wire.Writer();
         for (byte[] gid : gids) {
             Wire.Writer track = new Wire.Writer();
@@ -503,7 +514,7 @@ public class RandomSongTest {
         return response.toByteArray();
     }
 
-    private static byte[] gid(int last) {
+    static byte[] gid(int last) {
         byte[] gid = new byte[16];
         gid[15] = (byte) last;
         return gid;

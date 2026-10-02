@@ -106,6 +106,14 @@ Spotify's Android player, and no code is copied. The trash list keeps the
 desktop export format, `{"songs":{uri:true},"artists":{uri:true}}`, so a list
 exported on one moves to the other.
 
+Shuffle+ follows the behavior of Spicetify's desktop extension
+[`Extensions/shuffle+.js`](https://github.com/spicetify/cli/blob/e95f8025c133c277c6601b1977cf3b39a2fa5c2f/Extensions/shuffle+.js)
+in spicetify/cli (LGPL-2.1, by khanhas and Tetrax-10), at
+`e95f8025c133c277c6601b1977cf3b39a2fa5c2f`: it lists every song of a playlist,
+an album or Liked Songs, shuffles them with Fisher-Yates, and plays that exact
+order. It is reimplemented in Java for Spotify's Android player, and no code is
+copied.
+
 ## APK reverse engineering skill
 
 `.agents/skills/apk-reverse` contains the skill directory from

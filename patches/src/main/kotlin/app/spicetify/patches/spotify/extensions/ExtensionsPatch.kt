@@ -34,7 +34,8 @@ private const val HOME_CHIP_BRIDGE = "Lapp/spicetify/extension/spotify/extension
 // obfuscated enums keep no constants: the playlist query's BoolPredicate (4, 3, 7 and 6), and Your
 // Library's Filter (PLAYLIST 2, ALBUM 0) and LinkType (TRACK 4).
 internal val esperantoFieldNumbers = mapOf(
-    "Lcom/spotify/player/esperanto/proto/EsContextPlayerState\$ContextPlayerState;" to mapOf("TRACK" to 7),
+    "Lcom/spotify/player/esperanto/proto/EsContextPlayerState\$ContextPlayerState;" to
+        mapOf("CONTEXT_URI" to 2, "TRACK" to 7),
     "Lcom/spotify/player/esperanto/proto/EsProvidedTrack\$ProvidedTrack;" to mapOf("CONTEXT_TRACK" to 1),
     "Lcom/spotify/player/esperanto/proto/EsContextTrack\$ContextTrack;" to mapOf("URI" to 1, "UID" to 2, "METADATA" to 3),
     "Lcom/spotify/player/esperanto/proto/EsGetStateRequest\$GetStateRequest;" to
@@ -43,9 +44,14 @@ internal val esperantoFieldNumbers = mapOf(
     "Lcom/spotify/player/esperanto/proto/EsResponseWithReasons\$ResponseWithReasons;" to mapOf("ERROR" to 1),
     "Lcom/spotify/player/esperanto/proto/EsPlay\$PlayRequest;" to mapOf("PREPARE_PLAY_REQUEST" to 1),
     "Lcom/spotify/player/esperanto/proto/EsPreparePlay\$PreparePlayRequest;" to mapOf("CONTEXT" to 1, "OPTIONS" to 2),
-    "Lcom/spotify/player/esperanto/proto/EsContext\$Context;" to mapOf("URI" to 3, "URL" to 4),
-    "Lcom/spotify/player/esperanto/proto/EsPreparePlayOptions\$PreparePlayOptions;" to mapOf("SKIP_TO" to 3),
-    "Lcom/spotify/player/esperanto/proto/EsSkipToTrack\$SkipToTrack;" to mapOf("TRACK_URI" to 4),
+    "Lcom/spotify/player/esperanto/proto/EsContext\$Context;" to mapOf("PAGES" to 1, "URI" to 3, "URL" to 4),
+    "Lcom/spotify/player/esperanto/proto/EsContextPage\$ContextPage;" to mapOf("TRACKS" to 1),
+    "Lcom/spotify/player/esperanto/proto/EsPreparePlayOptions\$PreparePlayOptions;" to
+        mapOf("SKIP_TO" to 3, "PLAYER_OPTIONS_OVERRIDE" to 7),
+    "Lcom/spotify/player/esperanto/proto/EsSkipToTrack\$SkipToTrack;" to mapOf("TRACK_URI" to 4, "TRACK_INDEX" to 5),
+    "Lcom/spotify/player/esperanto/proto/EsContextPlayerOptions\$ContextPlayerOptionOverrides;" to
+        mapOf("SHUFFLING_CONTEXT" to 1),
+    "Lcom/spotify/player/esperanto/proto/EsOptional\$OptionalBoolean;" to mapOf("VALUE" to 1),
     "Lspotify/playlist/esperanto/proto/PlaylistGetRequest;" to mapOf("URI" to 1, "QUERY" to 2, "POLICY" to 3),
     "Lspotify/playlist/esperanto/proto/PlaylistQuery;" to
         mapOf("BOOL_PREDICATES" to 1, "RANGE" to 4, "SHOW_UNAVAILABLE" to 8),
@@ -55,7 +61,8 @@ internal val esperantoFieldNumbers = mapOf(
     "Lcom/spotify/playlist/policy/proto/PlaylistItemDecorationPolicy;" to mapOf("URI" to 1),
     "Lspotify/playlist/esperanto/proto/PlaylistGetResponse;" to mapOf("STATUS" to 1, "DATA" to 2),
     "Lspotify/playlist/esperanto/proto/ResponseStatus;" to mapOf("STATUS_CODE" to 1),
-    "Lcom/spotify/playlist/proto/PlaylistRequest\$Response;" to mapOf("ITEM" to 1, "UNRANGED_LENGTH" to 4),
+    "Lcom/spotify/playlist/proto/PlaylistRequest\$Response;" to
+        mapOf("ITEM" to 1, "UNRANGED_LENGTH" to 4, "LOADING_CONTENTS" to 6),
     "Lcom/spotify/playlist/proto/PlaylistRequest\$Item;" to mapOf("URI" to 18),
     "Lcom/spotify/metadata/esperanto/proto/GetEntityRequest;" to mapOf("URI" to 1),
     "Lcom/spotify/metadata/esperanto/proto/GetEntityResponse;" to mapOf("ITEM" to 1),
@@ -87,7 +94,8 @@ val extensionsPatch = bytecodePatch(
     description = "Adds Android versions of Spicetify extensions to the Spicetify Marketplace's Extensions tab, " +
         "in Spicetify settings, each off until you turn it on. Trash Bin skips the songs and artists you throw " +
         "away from their menus. Play a random song plays one from all of Spotify or your library, from a " +
-        "Random pill on Home.",
+        "Random pill on Home. Shuffle+ plays the playlist, album or Liked Songs that's playing in a truly " +
+        "random order.",
     default = false,
 ) {
     compatibleWith(spotifyCompatibility)

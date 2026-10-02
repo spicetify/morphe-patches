@@ -17,6 +17,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public final class Extensions {
     public static final String TRASH_BIN = "trash_bin";
     public static final String RANDOM_SONG = "random_song";
+    public static final String SHUFFLE_PLUS = "shuffle_plus";
 
     /**
      * Each extension on Android: its id, the desktop extension it ports as owner/repo/main, or null
@@ -27,6 +28,8 @@ public final class Extensions {
                 "Throw songs and artists in the trash from their menus, and Spotify skips them."},
         {RANDOM_SONG, null, "Play a random song",
                 "Tap Random on Home, next to All, to play one random song from all of Spotify or from your library."},
+        {SHUFFLE_PLUS, "spicetify/cli/Extensions/shuffle+.js", "Shuffle+",
+                "Play the playlist, album or Liked Songs that's playing in a truly random order."},
     };
     private static final String PREFERENCES = "spicetify_extensions";
     private static final Map<String, SwitchListener> SWITCHES = new ConcurrentHashMap<>();
@@ -40,6 +43,11 @@ public final class Extensions {
             TrashBin.register();
         } catch (Throwable e) {
             Log.w("Spicetify", "Couldn't register Trash Bin", e);
+        }
+        try {
+            ShufflePlus.register();
+        } catch (Throwable e) {
+            Log.w("Spicetify", "Couldn't register Shuffle+", e);
         }
     }
 

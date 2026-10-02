@@ -83,7 +83,7 @@ public class ExtensionsTest {
         assertEquals(Extensions.TRASH_BIN, Extensions.port("spicetify/cli/Extensions/trashbin.js"));
         assertEquals(Extensions.TRASH_BIN, Extensions.port("Spicetify/CLI/extensions/TRASHBIN.js"));
         assertNull(Extensions.port("someone/cli/Extensions/trashbin.js"));
-        assertNull(Extensions.port("spicetify/cli/Extensions/shuffle+.js"));
+        assertNull(Extensions.port("spicetify/cli/Extensions/bookmark.js"));
         // The Marketplace reads the manifest of a repository that holds a port, in any case.
         assertTrue(Extensions.hostsPort("Spicetify/CLI"));
         assertFalse(Extensions.hostsPort("spicetify/cl"));
@@ -91,6 +91,15 @@ public class ExtensionsTest {
         assertEquals("Trash Bin", Extensions.title(Extensions.TRASH_BIN));
         assertEquals("Throw songs and artists in the trash from their menus, and Spotify skips them.",
                 Extensions.description(Extensions.TRASH_BIN));
+    }
+
+    @Test
+    public void shufflePlusPortsTheDesktopExtensionInSpicetifysCli() {
+        assertEquals(Extensions.SHUFFLE_PLUS, Extensions.port("spicetify/cli/Extensions/shuffle+.js"));
+        assertFalse("a desktop Marketplace lists it", Extensions.androidOnly().contains(Extensions.SHUFFLE_PLUS));
+        assertEquals("Shuffle+", Extensions.title(Extensions.SHUFFLE_PLUS));
+        assertEquals("Play the playlist, album or Liked Songs that's playing in a truly random order.",
+                Extensions.description(Extensions.SHUFFLE_PLUS));
     }
 
     @Test

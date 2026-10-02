@@ -4,6 +4,7 @@ import android.app.Activity;
 import android.app.Dialog;
 import android.content.ClipboardManager;
 import android.content.Context;
+import android.content.ContextWrapper;
 import android.os.Looper;
 import android.view.View;
 import android.view.ViewGroup;
@@ -19,6 +20,7 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.Executor;
 import org.json.JSONObject;
@@ -35,6 +37,7 @@ import org.robolectric.annotation.Config;
 import org.robolectric.annotation.Implementation;
 import org.robolectric.annotation.Implements;
 import org.robolectric.shadows.ShadowDialog;
+import org.robolectric.shadows.ShadowToast;
 import static org.junit.Assert.*;
 
 /** The extensions patch without Theme colors: the root page's extensions, their sheets, and the Marketplace. */
@@ -96,6 +99,7 @@ public class ExtensionSettingsTest {
         // Trash Bin's switch and list are process-wide, so no other test may find it on or full.
         Extensions.setOn(context, Extensions.TRASH_BIN, false);
         Extensions.setOn(context, Extensions.RANDOM_SONG, false);
+        Extensions.setOn(context, Extensions.SHUFFLE_PLUS, false);
         TrashBin.clear(context);
         MarketplaceSettings.fetcher = productionFetcher;
         MarketplaceSettings.loads = productionLoads;
@@ -294,6 +298,71 @@ public class ExtensionSettingsTest {
         }
     }
 
+    @Test public void theExtensionsTabListsShufflePlusWithItsSwitch_whenSpicetifysCliListsIt() {
+        Marketplace.Repo cli = new Marketplace.Repo("spicetify", "cli", "main", "https://github.com/spicetify/cli", 20000);
+        Marketplace.Fetcher others = MarketplaceSettings.fetcher;
+        MarketplaceSettings.fetcher = url -> url.equals(Marketplace.manifestUrl(cli))
+                ? "[{\"name\":\"Shuffle+\",\"description\":\"d\",\"main\":\"Extensions/shuffle+.js\"},"
+                        + "{\"name\":\"Trash Bin\",\"description\":\"d\",\"main\":\"Extensions/trashbin.js\"}]"
+                : others.get(url);
+        try (var controller = root()) {
+            row(decor(), "Spicetify Marketplace").performClick();
+            idle();
+            ListView list = first(decor(), ListView.class);
+            View shuffle = list.getAdapter().getView(1, null, list); // after Play a random song, which only Android has
+            assertEquals(Arrays.asList("Shuffle+", Extensions.description(Extensions.SHUFFLE_PLUS)),
+                    visibleTexts(shuffle).subList(0, 2));
+            assertTrue(first(shuffle, Switch.class).isEnabled());
+            shuffle.performClick();
+            assertTrue(Extensions.isOn(context, Extensions.SHUFFLE_PLUS));
+            assertTrue("then Trash Bin, in the manifest's order",
+                    visibleTexts(list.getAdapter().getView(2, null, list)).contains("Trash Bin"));
+        }
+    }
+
+    @Test public void shufflePlussRowShowsOnlyWhileItsSwitchIsOn() {
+        try (var controller = root()) {
+            // The root lists only the extensions that are on, so the sheet of one that's off opens directly.
+            ExtensionSettings.open(screen(), Extensions.SHUFFLE_PLUS);
+            View sheet = decor();
+            View shuffle = row(sheet, "Shuffle+ what's playing");
+            assertNotNull(shuffle);
+            assertFalse("hidden while Shuffle+ is off", shuffle.isShown());
+
+            Switch toggle = first(sheet, Switch.class);
+            toggle.performClick();
+            assertTrue(Extensions.isOn(context, Extensions.SHUFFLE_PLUS));
+            assertTrue("shown once it's on", shuffle.isShown());
+            toggle.performClick();
+            assertFalse(Extensions.isOn(context, Extensions.SHUFFLE_PLUS));
+            assertFalse("hidden again once it's off", shuffle.isShown());
+        }
+    }
+
+    @Test public void shufflePlussSheetShufflesWhatsPlaying() throws Exception {
+        List<String> sent = PlayerBridgeTest.attachRecordingRouter();
+        Extensions.setOn(context, Extensions.SHUFFLE_PLUS, true); // opens the player state stream, which says nothing here
+        try (var controller = root()) {
+            row(decor(), "Shuffle+").performClick();
+            View sheet = decor();
+            assertTrue(visibleTexts(sheet).contains(Extensions.description(Extensions.SHUFFLE_PLUS)));
+            assertTrue(first(sheet, Switch.class).isChecked());
+            assertNull("only Play a random song's sheet plays a random song", row(sheet, "A song from Spotify"));
+
+            row(sheet, "Shuffle+ what's playing").performClick();
+            PlayerBridgeTest.awaitBridge(); // the run, which posts its Toast to the main thread
+            idle();
+            assertEquals("its run reads what's playing from the stream, which has said nothing yet",
+                    "Couldn't shuffle: Spotify hasn't said what's playing yet; try again in a moment",
+                    ShadowToast.getTextOfLatestToast());
+            assertEquals("only the stream", Collections.singletonList(
+                    "sp://esperanto/spotify.player.esperanto.proto.ContextPlayer/GetState"), sent);
+            assertTrue("the sheet stays for another run", sheet.isShown());
+        } finally {
+            PlayerBridgeTest.attachRouter(false);
+        }
+    }
+
     @Test public void theRootShowsWhileTheBridgeWaitsForSpotify() {
         PlayerBridgeTest.attachRouter(true);
         try (var controller = root()) {
@@ -313,6 +382,13 @@ public class ExtensionSettingsTest {
     private static String search(Marketplace.Repo repo) {
         return "{\"total_count\":1,\"items\":[{\"full_name\":\"" + repo.owner + "/" + repo.name + "\",\"default_branch\":\"main\","
                 + "\"html_url\":\"" + repo.url + "\",\"stargazers_count\":" + repo.stars + "}]}";
+    }
+
+    /** The settings page the latest dialog belongs to. */
+    private static SpicetifySettingsScreen screen() {
+        Context context = ShadowDialog.getLatestDialog().getContext();
+        while (!(context instanceof SpicetifySettingsScreen)) context = ((ContextWrapper) context).getBaseContext();
+        return (SpicetifySettingsScreen) context;
     }
 
     private static View decor() {

@@ -21,7 +21,9 @@ final class Esperanto {
     /** With an underscore in {@code your_library_esperanto}; the dotted name has no route. */
     static final String YOUR_LIBRARY = "spotify.your_library_esperanto.proto.YourLibraryService";
     static final String LIKED_SONGS = "spotify:playlist:37i9dQZF1F5p3rmiWPIYgZ";
-    /** {@link #parseResult}'s answer when the player refuses a command; 0 is OK. */
+    /** {@link #parseResult}'s answer when the player takes a command. */
+    static final int OK = 0;
+    /** {@link #parseResult}'s answer when the player refuses a command. */
     static final int FORBIDDEN = 1;
 
     private static final String BASE62_ALPHABET = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
@@ -35,6 +37,8 @@ final class Esperanto {
 
     /** A parsed {@code ContextPlayerState}: the fields the extensions read. */
     static final class PlayerState {
+        /** The playlist, album or other list that's playing, or null when nothing is loaded. */
+        String contextUri;
         String trackUri;
         String trackUid;
         List<String> artistUris = new ArrayList<>();
@@ -42,15 +46,20 @@ final class Esperanto {
         boolean episode;
     }
 
-    /** {@code ContextPlayerState{7 track: ProvidedTrack{1 context_track}}}; everything else is skipped. */
+    /** {@code ContextPlayerState{2 context_uri, 7 track: ProvidedTrack{1 context_track}}}; everything else is skipped. */
     static PlayerState parseState(byte[] contextPlayerState) throws IOException {
         PlayerState state = new PlayerState();
         Wire.Reader reader = new Wire.Reader(contextPlayerState);
         while (reader.next()) {
-            if (reader.field() == 7) {
-                readProvidedTrack(reader.message(), state);
-            } else {
-                reader.skip();
+            switch (reader.field()) {
+                case 2:
+                    state.contextUri = reader.string();
+                    break;
+                case 7:
+                    readProvidedTrack(reader.message(), state);
+                    break;
+                default:
+                    reader.skip();
             }
         }
         return state;
@@ -166,6 +175,44 @@ final class Esperanto {
     }
 
     /**
+     * {@code PlayRequest{1 prepare_play_request{1 context{1 pages{1 tracks*{1 uri}}, 3 uri}, 2 options{3
+     * skip_to{5 track_index{1 0}}, 7 player_options_override{1 shuffling_context{1 false}}}}}}: plays
+     * {@code trackUris} in exactly that order, as one explicit page of {@code contextUri}, from the
+     * first, with Spotify's own shuffle off.
+     */
+    static byte[] playOrder(String contextUri, List<String> trackUris) {
+        Wire.Writer page = new Wire.Writer();
+        for (String trackUri : trackUris) {
+            Wire.Writer track = new Wire.Writer();
+            track.string(1, trackUri);
+            page.message(1, track);
+        }
+        // No url: with one, the core could load the context again and drop this page.
+        Wire.Writer context = new Wire.Writer();
+        context.message(1, page);
+        context.string(3, contextUri);
+
+        Wire.Writer trackIndex = new Wire.Writer();
+        trackIndex.varint(1, 0);
+        Wire.Writer skipTo = new Wire.Writer();
+        skipTo.message(5, trackIndex);
+        Wire.Writer shufflingContext = new Wire.Writer();
+        shufflingContext.bool(1, false);
+        Wire.Writer overrides = new Wire.Writer();
+        overrides.message(1, shufflingContext);
+        Wire.Writer options = new Wire.Writer();
+        options.message(3, skipTo);
+        options.message(7, overrides);
+
+        Wire.Writer prepare = new Wire.Writer();
+        prepare.message(1, context);
+        prepare.message(2, options);
+        Wire.Writer request = new Wire.Writer();
+        request.message(1, prepare);
+        return request.toByteArray();
+    }
+
+    /**
      * {@code PlaylistGetRequest{1 uri, 2 query, 3 policy}}: {@code length} songs of {@code uri} from
      * {@code start}, and the list's length. The query leaves out banned songs, songs by banned artists,
      * recommendations, episodes and songs that can't play ({@code show_unavailable} false), and so does
@@ -266,15 +313,19 @@ final class Esperanto {
         return error;
     }
 
-    /** A page of a playlist or Liked Songs: its playable {@code length} and the uris read. */
+    /**
+     * A page of a playlist or Liked Songs: its playable {@code length}, the uris read, and whether the
+     * core is still loading the list, which makes the page incomplete.
+     */
     static final class PlaylistPage {
         int length;
         List<String> uris = new ArrayList<>();
+        boolean loading;
     }
 
     /**
      * Reads a {@code PlaylistGetResponse{1 status{1 status_code}, 2 data{1 item*{18 uri}, 4
-     * unranged_length}}}. A list that's forbidden, gone or blocked in the user's country (403, 404,
+     * unranged_length, 6 loading_contents}}}. A list that's forbidden, gone or blocked in the user's country (403, 404,
      * 451) reads as an empty page; any other status outside 2xx throws.
      */
     static PlaylistPage parsePlaylistGet(byte[] playlistGetResponse) throws IOException {
@@ -326,6 +377,9 @@ final class Esperanto {
                     break;
                 case 4:
                     page.length = (int) data.varint();
+                    break;
+                case 6:
+                    page.loading = data.varint() != 0;
                     break;
                 default:
                     data.skip();

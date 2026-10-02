@@ -3,6 +3,7 @@ package app.spicetify.extension.spotify.extensions;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
@@ -16,9 +17,10 @@ public class EsperantoTest {
     // ---- State ----
 
     @Test
-    public void parseStateReadsTheTrackItsArtistsAndAdvertisement() throws IOException {
+    public void parseStateReadsTheContextTheTrackItsArtistsAndAdvertisement() throws IOException {
         Esperanto.PlayerState parsed = Esperanto.parseState(contextPlayerState("spotify:track:x"));
 
+        assertEquals("spotify:playlist:p", parsed.contextUri);
         assertEquals("spotify:track:x", parsed.trackUri);
         assertEquals("uid-1", parsed.trackUid);
         assertEquals(Arrays.asList("spotify:artist:a1", "spotify:artist:a2"), parsed.artistUris);
@@ -33,6 +35,14 @@ public class EsperantoTest {
         contextTrack.message(3, metadataEntry("is_advertisement", "true"));
 
         assertTrue(Esperanto.parseState(state(contextTrack)).advertisement);
+    }
+
+    @Test
+    public void parseStateLeavesTheContextNullWhenNothingIsLoaded() throws IOException {
+        Wire.Writer contextTrack = new Wire.Writer();
+        contextTrack.string(1, "spotify:track:x");
+
+        assertNull(Esperanto.parseState(state(contextTrack)).contextUri);
     }
 
     @Test
@@ -75,6 +85,26 @@ public class EsperantoTest {
 
         byte[] withoutSkip = Esperanto.playContext("spotify:track:a", null);
         assertTrue("no options", repeatedNestedBytes(nestedBytes(withoutSkip, 1), 2).isEmpty());
+    }
+
+    @Test
+    public void playOrderPlaysTheListAsOneExplicitPageFromItsFirstSongWithSpotifysShuffleOff() throws IOException {
+        byte[] request = Esperanto.playOrder("spotify:playlist:p", Arrays.asList("spotify:track:b", "spotify:track:a"));
+        byte[] prepare = nestedBytes(request, 1);
+
+        byte[] context = nestedBytes(prepare, 1);
+        assertEquals("spotify:playlist:p", stringField(context, 3));
+        assertTrue("no url, which could let the core load the context again", repeatedNestedBytes(context, 4).isEmpty());
+        List<byte[]> pages = repeatedNestedBytes(context, 1);
+        assertEquals(1, pages.size());
+        List<byte[]> tracks = repeatedNestedBytes(pages.get(0), 1);
+        assertEquals(2, tracks.size());
+        assertEquals("spotify:track:b", stringField(tracks.get(0), 1));
+        assertEquals("spotify:track:a", stringField(tracks.get(1), 1));
+
+        byte[] options = nestedBytes(prepare, 2);
+        assertEquals("from track index 0", 0L, varintField(nestedBytes(nestedBytes(options, 3), 5), 1));
+        assertEquals("shuffling_context false", 0L, varintField(nestedBytes(nestedBytes(options, 7), 1), 1));
     }
 
     @Test
@@ -144,6 +174,21 @@ public class EsperantoTest {
 
         assertEquals(Arrays.asList("spotify:track:a", "spotify:track:b"), page.uris);
         assertEquals(42, page.length);
+        assertFalse(page.loading);
+    }
+
+    @Test
+    public void parsePlaylistGetReadsWhetherTheCoreIsStillLoadingTheList() throws IOException {
+        Wire.Writer status = new Wire.Writer();
+        status.varint(1, 200);
+        Wire.Writer data = new Wire.Writer();
+        data.varint(4, 42);
+        data.bool(6, true);
+        Wire.Writer response = new Wire.Writer();
+        response.message(1, status);
+        response.message(2, data);
+
+        assertTrue(Esperanto.parsePlaylistGet(response.toByteArray()).loading);
     }
 
     @Test
@@ -245,9 +290,9 @@ public class EsperantoTest {
     // ---- Fixtures ----
 
     /**
-     * A {@code ContextPlayerState} playing {@code trackUri} (uid {@code uid-1}): artists {@code a1}
-     * and {@code a2} plus a blank third, {@code is_advertisement=false}, and a context and a playback
-     * id the parser skips. Other tests send it as a state body.
+     * A {@code ContextPlayerState} playing {@code trackUri} (uid {@code uid-1}) in {@code
+     * spotify:playlist:p}: artists {@code a1} and {@code a2} plus a blank third, {@code
+     * is_advertisement=false}, and a playback id the parser skips. Other tests send it as a state body.
      */
     static byte[] contextPlayerState(String trackUri) {
         Wire.Writer contextTrack = new Wire.Writer();

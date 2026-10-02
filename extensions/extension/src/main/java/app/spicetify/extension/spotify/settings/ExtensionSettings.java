@@ -4,12 +4,14 @@ import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Context;
 import android.text.InputType;
+import android.view.View;
 import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import app.spicetify.extension.spotify.extensions.Extensions;
 import app.spicetify.extension.spotify.extensions.PlayerBridge;
 import app.spicetify.extension.spotify.extensions.RandomSong;
+import app.spicetify.extension.spotify.extensions.ShufflePlus;
 import app.spicetify.extension.spotify.extensions.TrashBin;
 import org.json.JSONException;
 
@@ -40,8 +42,13 @@ final class ExtensionSettings {
     static void open(SpicetifySettingsScreen screen, String id) {
         LinearLayout rows = SpotifyStyle.column(screen);
         boolean on = Extensions.isOn(screen, id);
-        SpotifyStyle.toggleRow(rows, Extensions.title(id), on ? Extensions.latestStatus(id) : "Off", on,
-                (button, checked) -> Extensions.setOn(screen, id, checked));
+        // Rows that only work while the extension is on show only while its switch is.
+        LinearLayout whileOn = SpotifyStyle.column(screen);
+        whileOn.setVisibility(on ? View.VISIBLE : View.GONE);
+        SpotifyStyle.toggleRow(rows, Extensions.title(id), on ? Extensions.latestStatus(id) : "Off", on, (button, checked) -> {
+            Extensions.setOn(screen, id, checked);
+            whileOn.setVisibility(checked ? View.VISIBLE : View.GONE);
+        });
         if (Extensions.TRASH_BIN.equals(id)) {
             LinearLayout controls = SpotifyStyle.column(screen);
             trashBin(screen, controls, null);
@@ -53,6 +60,11 @@ final class ExtensionSettings {
             SpotifyStyle.actionRow(rows, "A song from your library", "Pick one from Liked Songs, your playlists and your albums",
                     view -> RandomSong.playFromLibrary(screen));
         }
+        if (Extensions.SHUFFLE_PLUS.equals(id)) {
+            SpotifyStyle.actionRow(whileOn, "Shuffle+ what's playing", "Play every song of the list that's playing in a new order",
+                    view -> ShufflePlus.shuffleWhatsPlaying(screen));
+        }
+        rows.addView(whileOn);
         SpotifySheet sheet = new SpotifySheet(screen, Extensions.title(id), Extensions.description(id));
         sheet.view(rows).secondary("Close");
         sheet.setOnDismissListener(closed -> screen.refresh());

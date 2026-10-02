@@ -25,9 +25,9 @@ public final class RandomSong {
     private static final String QUERY_CHARACTERS = "abcdefghijklmnopqrstuvwxyz0123456789";
     /** The Web API searches no deeper than this. */
     private static final int OFFSETS = 1000;
-    private static final int LOADING_RETRIES = 3;
-    private static final long LOADING_RETRY_MILLIS = 1000;
-    private static final int OK = 0;
+    /** A list the core is still loading is asked again this many times, this far apart. Shuffle+ waits the same way. */
+    static final int LOADING_RETRIES = 3;
+    static final long LOADING_RETRY_MILLIS = 1000;
 
     private RandomSong() {}
 
@@ -215,7 +215,7 @@ public final class RandomSong {
                 if (unreadable > 0) {
                     fail(context, unreadableReason, null);
                 } else {
-                    tell(context, "Your library has no songs to pick from");
+                    tell(context, Extensions.RANDOM_SONG, "Your library has no songs to pick from");
                 }
                 return;
             }
@@ -273,31 +273,44 @@ public final class RandomSong {
         byte[] request = Esperanto.playContext(contextUri, trackUri);
         PlayerBridge.call(Esperanto.CONTEXT_PLAYER, "Play", request, step(context, body -> {
             int error = Esperanto.parseResult(body);
-            if (error != OK) throw new IOException("Spotify refused to play it (error " + error + ")");
+            if (error != Esperanto.OK) throw new IOException("Spotify refused to play it (error " + error + ")");
             Extensions.status(Extensions.RANDOM_SONG, playing);
         }));
     }
 
     /** What a step does with its answer. Anything it throws ends the run, as a failed call does. */
-    private interface Step {
+    interface Step {
         void run(byte[] body) throws Exception;
     }
 
-    /** {@code next} as a bridge callback, which runs on the bridge thread and never throws. */
+    /** How a run ends when a step fails: {@code e} is what the step threw, or null when the call failed. */
+    interface Failure {
+        void fail(String reason, Throwable e);
+    }
+
+    /** {@code next} as a bridge callback that ends this extension's run through {@link #fail}. */
     private static PlayerBridge.Result step(Context context, Step next) {
+        return step(next, (reason, e) -> fail(context, reason, e));
+    }
+
+    /**
+     * {@code next} as a bridge callback, which runs on the bridge thread and never throws: a failed
+     * call, or anything {@code next} throws, goes to {@code failure}. Shuffle+ runs its steps this way too.
+     */
+    static PlayerBridge.Result step(Step next, Failure failure) {
         return new PlayerBridge.Result() {
             @Override
             public void done(byte[] body) {
                 try {
                     next.run(body);
                 } catch (Throwable e) {
-                    fail(context, reason(e), e);
+                    failure.fail(reason(e), e);
                 }
             }
 
             @Override
             public void failed(String reason) {
-                fail(context, reason, null);
+                failure.fail(reason, null);
             }
         };
     }
@@ -308,17 +321,17 @@ public final class RandomSong {
 
     private static void fail(Context context, String reason, Throwable e) {
         Log.w("Spicetify", "Play a random song failed: " + reason, e);
-        tell(context, "Couldn't find a random song: " + reason);
+        tell(context, Extensions.RANDOM_SONG, "Couldn't find a random song: " + reason);
     }
 
-    /** Shows {@code line} as the extension's status, and in a Toast on the main thread. */
-    private static void tell(Context context, String line) {
-        Extensions.status(Extensions.RANDOM_SONG, line);
+    /** Shows {@code line} as extension {@code id}'s status, and in a Toast on the main thread. */
+    static void tell(Context context, String id, String line) {
+        Extensions.status(id, line);
         new Handler(Looper.getMainLooper()).post(() -> {
             try {
                 Toast.makeText(context, line, Toast.LENGTH_LONG).show();
             } catch (Throwable e) {
-                Log.w("Spicetify", "Play a random song couldn't show a Toast", e);
+                Log.w("Spicetify", "Couldn't show a Toast", e);
             }
         });
     }
