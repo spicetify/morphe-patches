@@ -16,14 +16,16 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public final class Extensions {
     public static final String TRASH_BIN = "trash_bin";
+    public static final String RANDOM_SONG = "random_song";
 
     /**
-     * Each extension ported to Android: its id, the desktop extension it ports as owner/repo/main,
-     * its name, and what it does on Android. Spicetify settings lists them in this order.
+     * Each extension on Android: its id, the desktop extension it ports as owner/repo/main, or null
+     * when it has none, its name, and what it does on Android. Spicetify settings lists them in this order.
      */
     private static final String[][] PORTS = {
         {TRASH_BIN, "spicetify/cli/Extensions/trashbin.js", "Trash Bin",
                 "Throw songs and artists in the trash from their menus, and Spotify skips them."},
+        {RANDOM_SONG, null, "Play a random song", "Play one random song from all of Spotify or from your library."},
     };
     private static final String PREFERENCES = "spicetify_extensions";
     private static final Map<String, SwitchListener> SWITCHES = new ConcurrentHashMap<>();
@@ -53,15 +55,24 @@ public final class Extensions {
 
     /** The id of the Android port of desktop extension {@code source}, owner/repo/main in any case, or null. */
     public static String port(String source) {
-        for (String[] port : PORTS) if (port[1].equalsIgnoreCase(source)) return port[0];
+        for (String[] port : PORTS) if (port[1] != null && port[1].equalsIgnoreCase(source)) return port[0];
         return null;
     }
 
     /** Whether repository {@code ownerRepo}, owner/repo in any case, holds a desktop extension ported here. */
     public static boolean hostsPort(String ownerRepo) {
         String prefix = ownerRepo + "/";
-        for (String[] port : PORTS) if (port[1].regionMatches(true, 0, prefix, 0, prefix.length())) return true;
+        for (String[] port : PORTS) {
+            if (port[1] != null && port[1].regionMatches(true, 0, prefix, 0, prefix.length())) return true;
+        }
         return false;
+    }
+
+    /** The extensions only Android has: no desktop Marketplace lists them, so the Extensions tab lists them first. */
+    public static List<String> androidOnly() {
+        List<String> ids = new ArrayList<>();
+        for (String[] port : PORTS) if (port[1] == null) ids.add(port[0]);
+        return ids;
     }
 
     /** Extension {@code id}'s name on Android. */

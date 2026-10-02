@@ -199,7 +199,10 @@ final class Marketplace {
         final String usercssUrl;
         /** The scripts the theme includes, in manifest order, which may name its image too. */
         final List<String> includeUrls;
-        /** For an extension, the desktop extension it is, as owner/repo/main; null for a theme. */
+        /**
+         * For an extension, the desktop extension it is, as owner/repo/main, or the id of one only Android
+         * has; null for a theme.
+         */
         final String extension;
 
         Theme(String title, String description, String author, String previewUrl, String schemesUrl,

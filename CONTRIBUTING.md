@@ -132,7 +132,8 @@ after its native router starts scheduling, that the song and artist menus pass
 their frozen item lists and rows through the menu bridge right before building
 the menu, that `InstalledPatches.extensions()` is on, and that no hook is
 present and the capability is off without the patch. The patch also
-checks each player message field number the bridge reads;
+checks each field number of the player, playlist, metadata, and Your Library
+messages that the extensions read or write;
 `verify-failures.py --case changed-player-protocol` checks that refusal.
 
 Check refusal paths against the same stock base APK and bundle:

@@ -9,6 +9,7 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 import app.spicetify.extension.spotify.extensions.Extensions;
 import app.spicetify.extension.spotify.extensions.PlayerBridge;
+import app.spicetify.extension.spotify.extensions.RandomSong;
 import app.spicetify.extension.spotify.extensions.TrashBin;
 import org.json.JSONException;
 
@@ -45,6 +46,12 @@ final class ExtensionSettings {
             LinearLayout controls = SpotifyStyle.column(screen);
             trashBin(screen, controls, null);
             rows.addView(controls);
+        }
+        if (Extensions.RANDOM_SONG.equals(id)) {
+            SpotifyStyle.actionRow(rows, "A song from Spotify", "Search all of Spotify for one and play it",
+                    view -> RandomSong.playFromSpotify(screen));
+            SpotifyStyle.actionRow(rows, "A song from your library", "Pick one from Liked Songs, your playlists and your albums",
+                    view -> RandomSong.playFromLibrary(screen));
         }
         SpotifySheet sheet = new SpotifySheet(screen, Extensions.title(id), Extensions.description(id));
         sheet.view(rows).secondary("Close");

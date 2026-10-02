@@ -81,6 +81,21 @@ public class PlayerBridgeTest {
     }
 
     @Test
+    public void getSendsAPlainCosmosGet() throws Exception {
+        Answer answer = new Answer();
+        PlayerBridge.get("sp://auth/v2/token?renew=0", answer);
+
+        FakeRequest request = router.only();
+        assertEquals("GET", request.action);
+        assertEquals("sp://auth/v2/token?renew=0", request.uri);
+        assertArrayEquals(new byte[0], request.body);
+        request.callback.onResponse(200, "{}".getBytes(UTF_8));
+
+        answer.await();
+        assertEquals("{}", new String(answer.body, UTF_8));
+    }
+
+    @Test
     public void aStatusOtherThan200Fails() throws Exception {
         Answer answer = new Answer();
         PlayerBridge.call(Esperanto.CONTEXT_PLAYER, "SkipNext", new byte[0], answer);
@@ -596,6 +611,32 @@ public class PlayerBridgeTest {
         PlayerBridge.attach(fresh);
     }
 
+    /**
+     * Attaches a fresh router that answers nothing and returns the uris sent through it, in order; for tests
+     * outside this package. A run sends from the bridge thread, so {@link #awaitBridge} lets it get there.
+     */
+    public static List<String> attachRecordingRouter() {
+        List<String> uris = new CopyOnWriteArrayList<>();
+        PlayerBridge.attach(new CosmosRouter() {
+            @Override
+            public Cancel resolve(String action, String uri, byte[] body, Callback callback) {
+                uris.add(uri);
+                return () -> {};
+            }
+
+            @Override
+            public boolean destroyed() {
+                return false;
+            }
+        });
+        return uris;
+    }
+
+    /** Waits for the bridge thread to run everything posted to it so far; for tests outside this package. */
+    public static void awaitBridge() throws Exception {
+        onBridge(() -> null);
+    }
+
     /** Runs {@code task} on the bridge thread, after everything posted before it, and returns its result. */
     static <T> T onBridge(Callable<T> task) throws Exception {
         FutureTask<T> run = new FutureTask<>(task);
@@ -667,7 +708,7 @@ public class PlayerBridgeTest {
         return reopened;
     }
 
-    private static void awaitQuietly(CountDownLatch latch) {
+    static void awaitQuietly(CountDownLatch latch) {
         try {
             latch.await(CEILING_SECONDS, TimeUnit.SECONDS);
         } catch (InterruptedException e) {
@@ -715,6 +756,8 @@ public class PlayerBridgeTest {
         final String uri;
         final byte[] body;
         final CosmosRouter.Callback callback;
+        /** The thread that sent it, since resolve runs on the sender's thread. */
+        final String thread = Thread.currentThread().getName();
         volatile boolean cancelled;
 
         FakeRequest(String action, String uri, byte[] body, CosmosRouter.Callback callback) {

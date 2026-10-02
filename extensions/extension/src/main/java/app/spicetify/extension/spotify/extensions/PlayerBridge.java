@@ -13,15 +13,16 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
- * The extensions' line to Spotify's native core: single esperanto calls, and the
+ * The extensions' line to Spotify's native core: single esperanto calls and cosmos GETs, and the
  * {@code ContextPlayer/GetState} stream while anything listens to it. It's process-wide, and
  * connects when Spotify builds its {@code SharedCosmosRouterService} (hook H1).
  * <p>
  * Threading: the router answers on Spotify's core thread. There a callback only copies the body
  * and posts it to the one bridge thread, so it never blocks the core, and every {@link Result} and
  * {@link StateListener} runs on the bridge thread. Nothing may block that thread either: a wait is
- * a {@link #postDelayed}. Spotify may hold callbacks weakly, so the bridge keeps each live one in
- * {@link #LIVE} until it answers or is cancelled.
+ * a {@link #postDelayed}, and a network call runs on a thread of its own. Spotify may hold
+ * callbacks weakly, so the bridge keeps each live one in {@link #LIVE} until it answers or is
+ * cancelled.
  * <p>
  * When Spotify replaces its router, calls still waiting on the old one fail with "bridge not
  * connected", so a {@link Result} can arrive as a failure on router loss. A state stream that ends,
@@ -142,6 +143,11 @@ public final class PlayerBridge {
     /** POSTs {@code body} to {@code sp://esperanto/<service>/<method>}. */
     static void call(String service, String method, byte[] body, Result result) {
         send("POST", "sp://esperanto/" + service + "/" + method, body, result);
+    }
+
+    /** A plain cosmos GET, such as {@code sp://auth/v2/token?renew=0}. */
+    static void get(String uri, Result result) {
+        send("GET", uri, new byte[0], result);
     }
 
     /** Status 200 gives {@code done}, anything else {@code failed}; either runs on the bridge thread. */

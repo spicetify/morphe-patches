@@ -91,6 +91,15 @@ public class ExtensionsTest {
     }
 
     @Test
+    public void playARandomSongIsAndroidOnly_soNoDesktopExtensionPortsIt() {
+        assertEquals(Collections.singletonList(Extensions.RANDOM_SONG), Extensions.androidOnly());
+        assertNull(Extensions.port("spicetify/cli/Extensions/random.js"));
+        assertEquals("Play a random song", Extensions.title(Extensions.RANDOM_SONG));
+        assertEquals("Play one random song from all of Spotify or from your library.",
+                Extensions.description(Extensions.RANDOM_SONG));
+    }
+
+    @Test
     public void enabledListsTheExtensionsThatAreOn() {
         Extensions.setOn(context, Extensions.TRASH_BIN, false);
         assertEquals(Collections.emptyList(), Extensions.enabled(context));

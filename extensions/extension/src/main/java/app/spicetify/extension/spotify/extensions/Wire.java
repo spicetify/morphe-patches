@@ -27,6 +27,10 @@ final class Wire {
             writeVarint(v);
         }
 
+        void bool(int field, boolean v) {
+            varint(field, v ? 1 : 0);
+        }
+
         void string(int field, String v) {
             bytes(field, v.getBytes(StandardCharsets.UTF_8));
         }
@@ -39,6 +43,11 @@ final class Wire {
 
         void message(int field, Writer nested) {
             bytes(field, nested.toByteArray());
+        }
+
+        /** Appends a raw varint with no field tag, for a packed repeated field's payload. */
+        void rawVarint(long v) {
+            writeVarint(v);
         }
 
         byte[] toByteArray() {

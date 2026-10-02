@@ -95,6 +95,7 @@ public class ExtensionSettingsTest {
     @After public void restore() {
         // Trash Bin's switch and list are process-wide, so no other test may find it on or full.
         Extensions.setOn(context, Extensions.TRASH_BIN, false);
+        Extensions.setOn(context, Extensions.RANDOM_SONG, false);
         TrashBin.clear(context);
         MarketplaceSettings.fetcher = productionFetcher;
         MarketplaceSettings.loads = productionLoads;
@@ -116,7 +117,7 @@ public class ExtensionSettingsTest {
             View screen = marketplace.getWindow().getDecorView();
             assertEquals("Search extensions", first(screen, EditText.class).getHint().toString());
             ListView list = first(screen, ListView.class);
-            View trash = list.getAdapter().getView(0, null, list);
+            View trash = list.getAdapter().getView(1, null, list); // after Play a random song, which only Android has
             assertTrue(visibleTexts(trash).contains("Throw songs and artists in the trash from their menus, and Spotify skips them."));
             Switch toggle = first(trash, Switch.class);
             assertTrue(toggle.isEnabled());
@@ -209,6 +210,7 @@ public class ExtensionSettingsTest {
             row(decor(), "Trash Bin").performClick();
             View sheet = decor();
             assertNotNull(row(sheet, "Export"));
+            assertNull("only Play a random song's sheet plays songs", row(sheet, "A song from Spotify"));
             assertTrue(visibleTexts(sheet).contains("Copy the 1 song and 0 artists in the trash, in the desktop extension's format"));
 
             row(sheet, "Export").performClick();
@@ -239,6 +241,56 @@ public class ExtensionSettingsTest {
             assertEquals(0, TrashBin.songCount(context));
             assertEquals(0, TrashBin.artistCount(context));
             assertTrue(visibleTexts(sheet).contains("Take the 0 songs and 0 artists out of the trash"));
+        }
+    }
+
+    @Test public void theExtensionsTabListsPlayARandomSongFirst_andItsSwitchTurnsItOn() {
+        try (var controller = root()) {
+            row(decor(), "Spicetify Marketplace").performClick();
+            idle();
+            ListView list = first(decor(), ListView.class);
+            View random = list.getAdapter().getView(0, null, list);
+            assertEquals(Arrays.asList("Play a random song", "Play one random song from all of Spotify or from your library."),
+                    visibleTexts(random).subList(0, 2));
+            assertTrue(first(random, Switch.class).isEnabled());
+            random.performClick();
+            assertTrue(Extensions.isOn(context, Extensions.RANDOM_SONG));
+            assertTrue("GitHub's extensions follow", visibleTexts(list.getAdapter().getView(1, null, list)).contains("Trash Bin"));
+        }
+    }
+
+    @Test public void playARandomSongIsListedWithoutGitHub() {
+        MarketplaceSettings.fetcher = url -> {
+            throw new FileNotFoundException(url);
+        };
+        try (var controller = root()) {
+            row(decor(), "Spicetify Marketplace").performClick();
+            idle();
+            ListView list = first(decor(), ListView.class);
+            assertEquals(1, list.getAdapter().getCount());
+            assertTrue(visibleTexts(list.getAdapter().getView(0, null, list)).contains("Play a random song"));
+        }
+    }
+
+    @Test public void randomsSheetPlaysASongFromSpotifyOrFromYourLibrary() throws Exception {
+        Extensions.setOn(context, Extensions.RANDOM_SONG, true);
+        List<String> sent = PlayerBridgeTest.attachRecordingRouter();
+        try (var controller = root()) {
+            row(decor(), "Play a random song").performClick();
+            View sheet = decor();
+            assertTrue(visibleTexts(sheet).contains("Play one random song from all of Spotify or from your library."));
+            assertTrue(first(sheet, Switch.class).isChecked());
+
+            row(sheet, "A song from Spotify").performClick();
+            PlayerBridgeTest.awaitBridge();
+            assertEquals("its run asks the core for the Web API's token", Arrays.asList("sp://auth/v2/token?renew=0"), sent);
+            row(sheet, "A song from your library").performClick();
+            PlayerBridgeTest.awaitBridge();
+            assertEquals("its run lists the library", Arrays.asList("sp://auth/v2/token?renew=0",
+                    "sp://esperanto/spotify.your_library_esperanto.proto.YourLibraryService/All"), sent);
+            assertTrue("the sheet stays for another song", sheet.isShown());
+        } finally {
+            PlayerBridgeTest.attachRouter(false);
         }
     }
 

@@ -222,21 +222,26 @@ public class MarketplaceSettingsTest {
             tab(screen, "Extensions").performClick();
             assertTrue(selectedTab(screen, "Extensions"));
             assertFalse(selectedTab(screen, "Themes"));
-            assertEquals(Arrays.asList("Trash Bin", "lyrics", "bare"), titles(list.getAdapter()));
+            assertEquals("Android's own extension first, then GitHub's",
+                    Arrays.asList("Play a random song", "Trash Bin", "lyrics", "bare"), titles(list.getAdapter()));
             assertFalse("a desktop-only extension's manifest isn't read", requested.contains(Marketplace.manifestUrl(EXTENSIONS_REPO)));
             assertEquals("Search extensions", first(screen, EditText.class).getHint().toString());
-            // Trash Bin has an Android version: its own description, and a switch the whole row turns.
-            View trash = list.getAdapter().getView(0, null, list);
+            // Play a random song, which only Android has, comes first, then Trash Bin, which has an Android
+            // version: each with its own description, and a switch the whole row turns.
+            View random = list.getAdapter().getView(0, null, list);
+            assertEquals(Arrays.asList("Play a random song", Extensions.description(Extensions.RANDOM_SONG)),
+                    visibleTexts(random).subList(0, 2));
+            View trash = list.getAdapter().getView(1, null, list);
             assertEquals(Arrays.asList("Trash Bin", Extensions.description(Extensions.TRASH_BIN)), visibleTexts(trash).subList(0, 2));
             trash.performClick();
             assertTrue(first(trash, Switch.class).isChecked());
             assertTrue(Extensions.isOn(RuntimeEnvironment.getApplication(), Extensions.TRASH_BIN));
             Extensions.setOn(RuntimeEnvironment.getApplication(), Extensions.TRASH_BIN, false);
             // Any other extension is for the desktop.
-            View lyrics = list.getAdapter().getView(1, null, list);
+            View lyrics = list.getAdapter().getView(2, null, list);
             assertEquals(Arrays.asList("lyrics", "Desktop only • Shows lyrics"), visibleTexts(lyrics));
             assertEquals(View.GONE, first(lyrics, Switch.class).getVisibility());
-            assertEquals(Arrays.asList("bare", "Desktop only"), visibleTexts(list.getAdapter().getView(2, null, list)));
+            assertEquals(Arrays.asList("bare", "Desktop only"), visibleTexts(list.getAdapter().getView(3, null, list)));
 
             first(screen, EditText.class).setText("lyr");
             assertEquals(Collections.singletonList("lyrics"), titles(list.getAdapter()));
@@ -254,7 +259,7 @@ public class MarketplaceSettingsTest {
             View screen = open(decor()).getWindow().getDecorView();
             tab(screen, "Extensions").performClick();
             ListView list = first(screen, ListView.class);
-            list.getAdapter().getView(1, null, list).performClick();
+            list.getAdapter().getView(2, null, list).performClick();
             Intent opened = Shadows.shadowOf(controller.get()).getNextStartedActivity();
             assertEquals(Intent.ACTION_VIEW, opened.getAction());
             assertEquals(EXTENSIONS_REPO.url, opened.getDataString());

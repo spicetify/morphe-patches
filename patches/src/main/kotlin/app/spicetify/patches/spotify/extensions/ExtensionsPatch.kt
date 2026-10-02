@@ -23,7 +23,9 @@ private const val MENU_BRIDGE = "Lapp/spicetify/extension/spotify/extensions/nat
 
 // Every protobuf field number the extension's Esperanto.java writes or reads, as class#NAME_FIELD_NUMBER.
 // These classes keep their names and constants, so a build that renumbers a field fails here. Map
-// entries are not covered: protobuf numbers their key and value 1 and 2.
+// entries are not covered: protobuf numbers their key and value 1 and 2. Nor are enum values, since
+// obfuscated enums keep no constants: the playlist query's BoolPredicate (4, 3, 7 and 6), and Your
+// Library's Filter (PLAYLIST 2, ALBUM 0) and LinkType (TRACK 4).
 internal val esperantoFieldNumbers = mapOf(
     "Lcom/spotify/player/esperanto/proto/EsContextPlayerState\$ContextPlayerState;" to mapOf("TRACK" to 7),
     "Lcom/spotify/player/esperanto/proto/EsProvidedTrack\$ProvidedTrack;" to mapOf("CONTEXT_TRACK" to 1),
@@ -32,6 +34,44 @@ internal val esperantoFieldNumbers = mapOf(
         mapOf("PREV_TRACKS_CAP" to 1, "NEXT_TRACKS_CAP" to 2),
     "Lcom/spotify/player/esperanto/proto/EsOptional\$OptionalInt64;" to mapOf("VALUE" to 1),
     "Lcom/spotify/player/esperanto/proto/EsResponseWithReasons\$ResponseWithReasons;" to mapOf("ERROR" to 1),
+    "Lcom/spotify/player/esperanto/proto/EsPlay\$PlayRequest;" to mapOf("PREPARE_PLAY_REQUEST" to 1),
+    "Lcom/spotify/player/esperanto/proto/EsPreparePlay\$PreparePlayRequest;" to mapOf("CONTEXT" to 1, "OPTIONS" to 2),
+    "Lcom/spotify/player/esperanto/proto/EsContext\$Context;" to mapOf("URI" to 3, "URL" to 4),
+    "Lcom/spotify/player/esperanto/proto/EsPreparePlayOptions\$PreparePlayOptions;" to mapOf("SKIP_TO" to 3),
+    "Lcom/spotify/player/esperanto/proto/EsSkipToTrack\$SkipToTrack;" to mapOf("TRACK_URI" to 4),
+    "Lspotify/playlist/esperanto/proto/PlaylistGetRequest;" to mapOf("URI" to 1, "QUERY" to 2, "POLICY" to 3),
+    "Lspotify/playlist/esperanto/proto/PlaylistQuery;" to
+        mapOf("BOOL_PREDICATES" to 1, "RANGE" to 4, "SHOW_UNAVAILABLE" to 8),
+    "Lspotify/playlist/esperanto/proto/PlaylistRange;" to mapOf("START" to 1, "LENGTH" to 2),
+    "Lcom/spotify/playlist/policy/proto/PlaylistRequestDecorationPolicy;" to mapOf("PLAYLIST" to 1, "ITEM" to 4),
+    "Lcom/spotify/playlist/policy/proto/PlaylistDecorationPolicy;" to mapOf("UNRANGED_LENGTH" to 49),
+    "Lcom/spotify/playlist/policy/proto/PlaylistItemDecorationPolicy;" to mapOf("URI" to 1),
+    "Lspotify/playlist/esperanto/proto/PlaylistGetResponse;" to mapOf("STATUS" to 1, "DATA" to 2),
+    "Lspotify/playlist/esperanto/proto/ResponseStatus;" to mapOf("STATUS_CODE" to 1),
+    "Lcom/spotify/playlist/proto/PlaylistRequest\$Response;" to mapOf("ITEM" to 1, "UNRANGED_LENGTH" to 4),
+    "Lcom/spotify/playlist/proto/PlaylistRequest\$Item;" to mapOf("URI" to 18),
+    "Lcom/spotify/metadata/esperanto/proto/GetEntityRequest;" to mapOf("URI" to 1),
+    "Lcom/spotify/metadata/esperanto/proto/GetEntityResponse;" to mapOf("ITEM" to 1),
+    "Lcom/spotify/metadata/cosmos/proto/MetadataCosmos\$MetadataItem;" to mapOf("ALBUM" to 3),
+    "Lcom/spotify/metadata/proto/Metadata\$Album;" to mapOf("DISC" to 11),
+    "Lcom/spotify/metadata/proto/Metadata\$Disc;" to mapOf("TRACK" to 3),
+    "Lcom/spotify/metadata/proto/Metadata\$Track;" to mapOf("GID" to 1),
+    "Lspotify/your_library/esperanto/proto/YourLibraryRequest;" to mapOf("HEADER" to 1),
+    "Lspotify/your_library/esperanto/proto/YourLibraryRequestHeader;" to mapOf(
+        "LENGTH" to 12, "FILTERS" to 14, "ALL_PLAYLISTS" to 17, "NUM_LINK_TYPES_IN_PLAYLISTS" to 25,
+        "IGNORE_PINNING" to 26,
+    ),
+    "Lspotify/your_library/proto/YourLibraryConfig\$YourLibraryFilters;" to mapOf("FILTER" to 1),
+    "Lspotify/your_library/esperanto/proto/YourLibraryResponse;" to
+        mapOf("HEADER" to 1, "ENTITY" to 2, "PINNED_ENTITY" to 3, "STATUS_CODE" to 98, "ERROR" to 99),
+    "Lspotify/your_library/esperanto/proto/YourLibraryResponseHeader;" to mapOf("IS_LOADING" to 12),
+    "Lspotify/your_library/proto/YourLibraryDecoratedEntityOuterClass\$YourLibraryDecoratedEntity;" to
+        mapOf("ENTITY_INFO" to 1, "ALBUM" to 2, "PLAYLIST" to 4),
+    "Lspotify/your_library/proto/YourLibraryDecoratedEntityOuterClass\$YourLibraryEntityInfo;" to mapOf("URI" to 3),
+    "Lspotify/your_library/proto/YourLibraryDecoratedEntityOuterClass\$YourLibraryPlaylistExtraInfo;" to
+        mapOf("NUMBER_OF_ITEMS_PER_LINK_TYPE" to 12),
+    "Lspotify/your_library/proto/YourLibraryDecoratedEntityOuterClass\$NumberOfItemsForLinkType;" to
+        mapOf("LINK_TYPE" to 1, "NUM_ITEMS" to 2),
 ).flatMap { (type, fields) -> fields.map { (name, number) -> "$type#${name}_FIELD_NUMBER" to number } }.toMap()
 
 @Suppress("unused")
@@ -39,7 +79,7 @@ val extensionsPatch = bytecodePatch(
     name = "Spicetify extensions",
     description = "Adds Android versions of Spicetify extensions to the Spicetify Marketplace's Extensions tab, " +
         "in Spicetify settings, each off until you turn it on. Trash Bin skips the songs and artists you throw " +
-        "away from their menus.",
+        "away from their menus. Play a random song plays one from all of Spotify or your library.",
     default = false,
 ) {
     compatibleWith(spotifyCompatibility)

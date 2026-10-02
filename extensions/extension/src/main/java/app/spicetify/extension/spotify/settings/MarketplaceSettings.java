@@ -264,14 +264,15 @@ final class MarketplaceSettings extends LinearLayout {
     }
 
     /**
-     * Lists the tab's items that match the search, Galaxy V2 above the themes where themes apply, and
-     * says what the page is doing.
+     * Lists the tab's items that match the search, Galaxy V2 above the themes where themes apply and
+     * Android's own extensions above the others, and says what the page is doing.
      */
     private void show() {
         List<Marketplace.Theme> found = new ArrayList<>();
         for (Marketplace.Theme item : themes) if ((item.extension != null) == extensions) found.add(item);
         List<Marketplace.Theme> listed = new ArrayList<>(found.size() + 1);
         if (!extensions && themesApply()) listed.add(Marketplace.GALAXY_V2);
+        if (extensions) for (String id : Extensions.androidOnly()) listed.add(androidOnly(id));
         listed.addAll(found);
         List<Marketplace.Theme> shown = Marketplace.filter(listed, search.getText().toString());
         adapter.setThemes(shown);
@@ -286,6 +287,12 @@ final class MarketplaceSettings extends LinearLayout {
         status.setVisibility(message == null ? GONE : VISIBLE);
         refresh.setText(error != null ? "Retry" : "Refresh");
         refresh.setVisibility(loading ? GONE : VISIBLE);
+    }
+
+    /** An extension only Android has, as an item of the Extensions tab: its {@code extension} is its id. */
+    private static Marketplace.Theme androidOnly(String id) {
+        return new Marketplace.Theme(Extensions.title(id), Extensions.description(id), "Spicetify", null, null, null, -1, -1,
+                Collections.emptyList(), null, null, Collections.emptyList(), id);
     }
 
     /** Whether a theme can apply here: Theme colors is installed, on Android 11 or later. */
@@ -523,7 +530,8 @@ final class MarketplaceSettings extends LinearLayout {
         }
 
         void bind(Marketplace.Theme extension) {
-            String port = Extensions.port(extension.extension);
+            String port = Extensions.androidOnly().contains(extension.extension) ? extension.extension
+                    : Extensions.port(extension.extension);
             String name = port != null ? Extensions.title(port) : extension.title;
             String about = port == null ? "Desktop only" + (extension.description.isEmpty() ? "" : " • " + extension.description)
                     : Extensions.description(port);
