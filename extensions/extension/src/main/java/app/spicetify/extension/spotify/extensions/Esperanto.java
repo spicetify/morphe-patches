@@ -14,6 +14,8 @@ import java.util.TreeMap;
  */
 final class Esperanto {
     static final String CONTEXT_PLAYER = "spotify.player.esperanto.proto.ContextPlayer";
+    /** {@link #parseResult}'s answer when the player refuses a command; 0 is OK. */
+    static final int FORBIDDEN = 1;
 
     private Esperanto() {}
 
@@ -107,6 +109,11 @@ final class Esperanto {
 
     // ---- Request builders ----
 
+    /** {@code SkipNextRequest} with no fields: skip to whatever plays next. */
+    static byte[] skipNext() {
+        return new byte[0];
+    }
+
     /**
      * {@code GetStateRequest{1 prev_tracks_cap{1 0}, 2 next_tracks_cap{1 0}}}, each cap an
      * {@code OptionalInt64}. The extensions read only the current track, so a state leaves out the
@@ -119,5 +126,21 @@ final class Esperanto {
         request.message(1, none);
         request.message(2, none);
         return request.toByteArray();
+    }
+
+    // ---- Response parsers ----
+
+    /** The error code of a command's {@code ResponseWithReasons{1 error}}: 0 when it worked. */
+    static int parseResult(byte[] responseWithReasons) throws IOException {
+        Wire.Reader reader = new Wire.Reader(responseWithReasons);
+        int error = 0;
+        while (reader.next()) {
+            if (reader.field() == 1) {
+                error = (int) reader.varint();
+            } else {
+                reader.skip();
+            }
+        }
+        return error;
     }
 }

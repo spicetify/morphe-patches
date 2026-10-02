@@ -93,6 +93,16 @@ its `theme.js` names it as `defImage`, and both are downloaded when the theme
 is applied. That repository has no license, so nothing from it is copied or
 bundled: no code, CSS, or images.
 
+## Spicetify extensions
+
+Trash Bin follows the behavior of Spicetify's desktop extension
+[`Extensions/trashbin.js`](https://github.com/spicetify/cli/blob/7bd6df4b2197132e201c68150f720a4f6f0abd83/Extensions/trashbin.js)
+in spicetify/cli (LGPL-2.1, by khanhas and OhItsTom), at
+`7bd6df4b2197132e201c68150f720a4f6f0abd83`. It is reimplemented in Java for
+Spotify's Android player, and no code is copied. The trash list keeps the
+desktop export format, `{"songs":{uri:true},"artists":{uri:true}}`, so a list
+exported on one moves to the other.
+
 ## APK reverse engineering skill
 
 `.agents/skills/apk-reverse` contains the skill directory from

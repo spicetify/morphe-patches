@@ -9,9 +9,12 @@ import com.android.tools.smali.dexlib2.Opcode;
 import com.android.tools.smali.dexlib2.Opcodes;
 import com.android.tools.smali.dexlib2.iface.ClassDef;
 import com.android.tools.smali.dexlib2.iface.Method;
+import com.android.tools.smali.dexlib2.iface.instruction.FiveRegisterInstruction;
 import com.android.tools.smali.dexlib2.iface.instruction.Instruction;
+import com.android.tools.smali.dexlib2.iface.instruction.OneRegisterInstruction;
 import com.android.tools.smali.dexlib2.iface.instruction.ReferenceInstruction;
 import com.android.tools.smali.dexlib2.iface.instruction.RegisterRangeInstruction;
+import com.android.tools.smali.dexlib2.iface.instruction.TwoRegisterInstruction;
 import com.android.tools.smali.dexlib2.iface.reference.MethodReference;
 
 /** Checks the Spicetify extensions patch's hooks in a patched APK, or that none are there without it. */
@@ -19,6 +22,7 @@ class VerifyExtensionsDex {
     static final String EXTENSIONS = "Lapp/spicetify/extension/spotify/extensions/";
     static final String BRIDGE = EXTENSIONS + "PlayerBridge;";
     static final String SERVICE = "Lcom/spotify/cosmos/sharedcosmosrouterservice/SharedCosmosRouterService;";
+    static final String MENU_BRIDGE = EXTENSIONS + "nativebridge/MenuBridge;";
 
     static void require(boolean condition, String message) {
         if (!condition) throw new AssertionError(message);
@@ -44,30 +48,81 @@ class VerifyExtensionsDex {
         for (var entry : dex.getDexEntryNames()) {
             for (var definition : dex.getEntry(entry).getDexFile().getClasses()) classes.put(definition.getType(), definition);
         }
-        int bridgeHooks = 0;
+        int bridgeHooks = 0, trackHooks = 0, artistHooks = 0;
         for (var definition : classes.values()) {
             if (definition.getType().startsWith(EXTENSIONS)) continue;
             for (var method : definition.getMethods()) {
                 if (method.getImplementation() == null) continue;
                 var code = code(method);
                 for (int index = 0; index < code.size(); index++) {
-                    if (!calls(code.get(index), BRIDGE, "onCosmos")) continue;
-                    bridgeHooks++;
-                    verifyBridgeHook(definition, method, code, index);
+                    if (calls(code.get(index), BRIDGE, "onCosmos")) {
+                        bridgeHooks++;
+                        verifyBridgeHook(definition, method, code, index);
+                    } else if (calls(code.get(index), MENU_BRIDGE, "track")) {
+                        trackHooks++;
+                        verifyMenuHook(definition, method, code, index, "Lp/b9p0;", 11);
+                    } else if (calls(code.get(index), MENU_BRIDGE, "artist")) {
+                        artistHooks++;
+                        verifyMenuHook(definition, method, code, index, "Lp/lr5;", 1);
+                    }
                 }
             }
         }
-        require(bridgeHooks == (enabled ? 1 : 0), "Unexpected player bridge hook count: " + bridgeHooks);
+        int expected = enabled ? 1 : 0;
+        require(bridgeHooks == expected && trackHooks == expected && artistHooks == expected,
+                "Unexpected hook counts: player bridge " + bridgeHooks + ", track menu " + trackHooks
+                        + ", artist menu " + artistHooks);
         if (enabled) {
-            boolean target = false;
-            if (classes.containsKey(BRIDGE)) for (var m : classes.get(BRIDGE).getMethods()) {
-                target |= m.getName().equals("onCosmos") && m.getParameterTypes().equals(List.of("Ljava/lang/Object;"))
-                        && m.getReturnType().equals("V") && AccessFlags.PUBLIC.isSet(m.getAccessFlags())
-                        && AccessFlags.STATIC.isSet(m.getAccessFlags()) && m.getImplementation() != null;
-            }
-            require(target, "The player bridge hook's target must be a public static method with a body");
+            requireTarget(classes, BRIDGE, "onCosmos", List.of("Ljava/lang/Object;"), "V");
+            requireTarget(classes, MENU_BRIDGE, "track", List.of("Ljava/util/List;", "Ljava/lang/Object;"), "Ljava/util/List;");
+            requireTarget(classes, MENU_BRIDGE, "artist", List.of("Ljava/util/List;", "Ljava/lang/Object;"), "Ljava/util/List;");
         }
-        System.out.println("Spicetify extensions verified: " + bridgeHooks + " player bridge hook(s), selected=" + enabled);
+        System.out.println("Spicetify extensions verified: " + (bridgeHooks + trackHooks + artistHooks)
+                + " hook(s), selected=" + enabled);
+    }
+
+    /** Spotify calls each hook's target, so it must be a public static method with a body. */
+    static void requireTarget(Map<String, ClassDef> classes, String owner, String name, List<String> parameters, String result) {
+        boolean found = false;
+        if (classes.containsKey(owner)) for (var m : classes.get(owner).getMethods()) {
+            found |= m.getName().equals(name) && m.getParameterTypes().equals(parameters) && m.getReturnType().equals(result)
+                    && AccessFlags.PUBLIC.isSet(m.getAccessFlags()) && AccessFlags.STATIC.isSet(m.getAccessFlags())
+                    && m.getImplementation() != null;
+        }
+        require(found, "Hook target " + owner + "->" + name + " must be a public static method with a body");
+    }
+
+    /**
+     * T1 and T2 hand a context menu's frozen item list, v0, and the menu's row to the menu bridge, and put
+     * its answer back in v0 right before the menu model is built from it. The track menu's row is v11; the
+     * artist menu's is v22, which T2 moves to v1 first.
+     */
+    static void verifyMenuHook(ClassDef owner, Method method, List<Instruction> code, int index, String menu, int row) {
+        require(owner.getType().equals(menu) && method.getName().equals("apply")
+                && method.getParameterTypes().equals(List.of("Ljava/lang/Object;")),
+                "Menu hook is outside " + menu + "->apply");
+        require(code.get(index).getOpcode() == Opcode.INVOKE_STATIC
+                && code.get(index) instanceof FiveRegisterInstruction call
+                && call.getRegisterCount() == 2 && call.getRegisterC() == 0 && call.getRegisterD() == row,
+                "Menu hook must pass the frozen list v0 and the menu's row");
+        int frozen = index - 1;
+        if (row == 1) {
+            require(frozen >= 0 && code.get(frozen).getOpcode() == Opcode.MOVE_OBJECT_FROM16
+                    && code.get(frozen) instanceof TwoRegisterInstruction move
+                    && move.getRegisterA() == 1 && move.getRegisterB() == 22,
+                    "Artist menu hook must move the artist from v22 to v1");
+            frozen--;
+        }
+        require(frozen >= 1 && code.get(frozen).getOpcode() == Opcode.MOVE_RESULT_OBJECT
+                && ((OneRegisterInstruction) code.get(frozen)).getRegisterA() == 0
+                && calls(code.get(frozen - 1), "Lp/qte;", "J"),
+                "Menu hook must follow the frozen item list");
+        require(index + 2 < code.size() && code.get(index + 1).getOpcode() == Opcode.MOVE_RESULT_OBJECT
+                && ((OneRegisterInstruction) code.get(index + 1)).getRegisterA() == 0
+                && code.get(index + 2).getOpcode() == Opcode.NEW_INSTANCE
+                && ((OneRegisterInstruction) code.get(index + 2)).getRegisterA() == 1
+                && ((ReferenceInstruction) code.get(index + 2)).getReference().toString().equals("Lp/krj;"),
+                "Menu hook's list must become the menu model's");
     }
 
     /**

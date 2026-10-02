@@ -2,10 +2,14 @@ package app.spicetify.patches.spotify.extensions
 
 import com.android.tools.smali.dexlib2.Opcode
 import com.android.tools.smali.dexlib2.immutable.instruction.ImmutableInstruction10x
+import com.android.tools.smali.dexlib2.immutable.instruction.ImmutableInstruction21c
 import com.android.tools.smali.dexlib2.immutable.instruction.ImmutableInstruction35c
 import com.android.tools.smali.dexlib2.immutable.reference.ImmutableMethodReference
+import com.android.tools.smali.dexlib2.immutable.reference.ImmutableTypeReference
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 class ExtensionsPatchTest {
@@ -34,6 +38,23 @@ class ExtensionsPatchTest {
         assertNull(bridgeHookIndex(listOf(invoke(Opcode.INVOKE_VIRTUAL, "shutdown"), returnVoid)))
         assertNull(bridgeHookIndex(listOf(invoke(Opcode.INVOKE_VIRTUAL, owner = "Lp/other;"), returnVoid)))
     }
+
+    @Test
+    fun `accepts the menu model the menu hooks insert before`() {
+        assertTrue(isMenuModel(type(Opcode.NEW_INSTANCE, 1, "Lp/krj;")))
+    }
+
+    @Test
+    fun `refuses any other instruction at a menu hook`() {
+        assertFalse(isMenuModel(null))
+        assertFalse(isMenuModel(type(Opcode.NEW_INSTANCE, 2, "Lp/krj;")))
+        assertFalse(isMenuModel(type(Opcode.NEW_INSTANCE, 1, "Lp/other;")))
+        assertFalse(isMenuModel(type(Opcode.CONST_CLASS, 1, "Lp/krj;")))
+        assertFalse(isMenuModel(returnVoid))
+    }
+
+    private fun type(opcode: Opcode, register: Int, type: String) =
+        ImmutableInstruction21c(opcode, register, ImmutableTypeReference(type))
 
     private val returnVoid = ImmutableInstruction10x(Opcode.RETURN_VOID)
     private val schedule = invoke(Opcode.INVOKE_VIRTUAL)

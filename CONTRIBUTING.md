@@ -91,7 +91,8 @@ hooks, and that the extension holds the role and Compose tables; without it, non
 selectors, the local builder hook, both final URL hooks, the preference-aware
 wrapper, the settings dialog host, no added manifest components apart from
 server files, unchanged permissions, and the APK signature. It also compares
-all four installed settings bridge classes with the exact bundle used for
+all four installed settings bridge classes, and the two menu bridge classes
+the same bundle carries for extensions, with the exact bundle used for
 patching, including their code and class metadata.
 This catches missing or replaced menu code that still has valid references.
 Verify the bundle's release checksum and provenance separately; matching an
@@ -127,9 +128,11 @@ and an on/off comparison on a Free account.
 
 Add `--extensions` for **Spicetify extensions**. Its checker verifies that
 Spotify's `SharedCosmosRouterService` hands itself to the player bridge right
-after its native router starts scheduling, and that no hook is present without
-the patch. The patch also checks each player message field number the bridge
-reads; `verify-failures.py --case changed-player-protocol` checks that refusal.
+after its native router starts scheduling, that the song and artist menus pass
+their frozen item lists and rows through the menu bridge right before building
+the menu, and that no hook is present without the patch. The patch also
+checks each player message field number the bridge reads;
+`verify-failures.py --case changed-player-protocol` checks that refusal.
 
 Check refusal paths against the same stock base APK and bundle:
 

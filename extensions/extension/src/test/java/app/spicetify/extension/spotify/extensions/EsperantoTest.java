@@ -49,6 +49,17 @@ public class EsperantoTest {
         assertArrayEquals(new byte[] {0x0a, 0x02, 0x08, 0x00, 0x12, 0x02, 0x08, 0x00}, Esperanto.getState());
     }
 
+    @Test
+    public void skipNextHasNoFieldsAndItsResultIsTheErrorCode() throws IOException {
+        assertEquals(0, Esperanto.skipNext().length);
+
+        Wire.Writer forbidden = new Wire.Writer();
+        forbidden.varint(1, Esperanto.FORBIDDEN);
+        forbidden.string(2, "reason");
+        assertEquals(Esperanto.FORBIDDEN, Esperanto.parseResult(forbidden.toByteArray()));
+        assertEquals("no error field means it worked", 0, Esperanto.parseResult(new byte[0]));
+    }
+
     // ---- Fixtures ----
 
     /**

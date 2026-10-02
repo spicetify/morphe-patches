@@ -8,13 +8,26 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * The Android side of Spicetify's desktop extensions: each extension's switch, and the listener
- * that hears it.
+ * The Android side of Spicetify's desktop extensions: ids stable across ports, each extension's
+ * switch and the listener that hears it, and each one's latest status.
  */
 public final class Extensions {
+    public static final String TRASH_BIN = "trash_bin";
+
     private static final String PREFERENCES = "spicetify_extensions";
     private static final Map<String, SwitchListener> SWITCHES = new ConcurrentHashMap<>();
+    private static final Map<String, String> STATUS = new ConcurrentHashMap<>();
     private static volatile Context appContext;
+
+    // Each extension registers its switch listener in a try of its own, so one that throws can't
+    // stop the others or reach Spotify.
+    static {
+        try {
+            TrashBin.register();
+        } catch (Throwable e) {
+            Log.w("Spicetify", "Couldn't register Trash Bin", e);
+        }
+    }
 
     /**
      * Hears extension {@code id} turned on or off. {@link #setOn} calls it on the UI thread, and
@@ -62,6 +75,17 @@ public final class Extensions {
 
     private static SharedPreferences preferences(Context context) {
         return context.getApplicationContext().getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE);
+    }
+
+    /** Keeps {@code line} as extension {@code id}'s latest status. */
+    static void status(String id, String line) {
+        STATUS.put(id, line);
+    }
+
+    /** Extension {@code id}'s latest status, or "on" until it reports one. */
+    static String latestStatus(String id) {
+        String last = STATUS.get(id);
+        return last == null ? "on" : last;
     }
 
     /**
