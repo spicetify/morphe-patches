@@ -24,6 +24,10 @@ public class HomePinsTest {
     private static final String A = "spotify:playlist:a";
     private static final String B = "spotify:playlist:b";
     private static final String C = "spotify:album:c";
+    private static final String D = "spotify:playlist:d";
+    /** A saved playlist that Home doesn't show. */
+    private static final String X = "spotify:playlist:x";
+    private static final String SHORTCUTS = "home-shortcuts";
     private static final String LIKED_SONGS_IMAGE = "https://misc.scdn.co/liked-songs/liked-songs-300.png";
     private Application application;
 
@@ -94,11 +98,134 @@ public class HomePinsTest {
     }
 
     @Test public void changedNativeObjectsFailClosedWithoutMutatingInput() {
-        java.util.ArrayList<Object> nativeRows = new java.util.ArrayList<>();
-        nativeRows.add(new Object());
-        assertSame(nativeRows, HomePins.reorder(nativeRows));
-        assertEquals(1, nativeRows.size());
-        assertTrue(HomePins.choices().isEmpty());
+        ArrayList<Object> nativeRows = rows(row(A, "A"), new Object());
+        assertNull(HomePins.plan(SHORTCUTS, nativeRows));
+        assertEquals(2, nativeRows.size());
+        assertTrue("nothing is recorded", HomePins.choices().isEmpty());
+    }
+
+    @Test public void planPutsThePinsFirstInPinOrderAndRecordsHomesTitles() {
+        ArrayList<Object> rows = rows(row(A, "One"), row(B, "Two"), row(C, "Three"));
+        assertEquals(Arrays.asList("One", "Two", "Three"), describe(HomePins.plan(SHORTCUTS, rows), rows));
+        assertEquals(Arrays.asList("One", "Three", "Two"), labels(HomePins.choices()));
+        HomePins.setPinned(Arrays.asList(C, A));
+
+        assertEquals(Arrays.asList("Three", "One", "Two"), describe(HomePins.plan(SHORTCUTS, rows), rows));
+        assertEquals("Spotify's list is left alone", Arrays.asList("One", "Two", "Three"), describe(rows, rows));
+    }
+
+    @Test public void aPinSpotifyLeftOutGetsATileInItsPlaceAmongThePins() {
+        ArrayList<Object> rows = rows(row(A, "A"), row(B, "B"), row(C, "C"), row(D, "D"));
+        HomePins.plan(SHORTCUTS, rows);
+        HomePins.choices(Collections.singletonList(new Library.Item(X, "Road trip", "spotify:image:x", false)));
+        HomePins.setPinned(Arrays.asList(C, X, A));
+
+        List<Object> plan = HomePins.plan(SHORTCUTS, rows);
+
+        // Cut to the four rows Spotify sent, so D goes.
+        assertEquals(Arrays.asList("C", "new Road trip", "A", "B"), describe(plan, rows));
+        assertArrayEquals(new String[]{X, "Road trip", "spotify:image:x"}, (String[]) plan.get(1));
+    }
+
+    @Test public void aPinOnHomeReusesSpotifysRowForThatEntity() {
+        // A row can open another uri than the entity it stands for.
+        ArrayList<Object> rows = rows(row(A, "A"), row("spotify:station:playlist:d", D, "D radio"));
+        HomePins.choices(Collections.singletonList(new Library.Item(D, "D", "spotify:image:d", false)));
+        HomePins.setPinned(Collections.singletonList(D));
+
+        assertEquals(Arrays.asList("D radio", "A"), describe(HomePins.plan(SHORTCUTS, rows), rows));
+    }
+
+    @Test public void aPinGetsNoTileWhenARowAlreadyOpensIt() {
+        // The grid keys its rows by link. A is the link of a row for another entity, and B a row's entity.
+        // The last row opens Liked Songs under another of its uris.
+        ArrayList<Object> rows = rows(row(A, "spotify:playlist:e", "Opens A"), row(B, "B"), row(C, "C"),
+                row("spotify:user:me:collection", "spotify:playlist:f", "Opens Liked Songs"));
+        HomePins.choices(Arrays.asList(new Library.Item(A, "A", "spotify:image:a", false),
+                new Library.Item(B, "B", "spotify:image:b", false),
+                new Library.Item("spotify:collection:tracks", "Liked Songs", LIKED_SONGS_IMAGE, false)));
+        HomePins.setPinned(Arrays.asList(A, B, "spotify:collection:tracks"));
+
+        assertEquals(Arrays.asList("B", "Opens A", "C", "Opens Liked Songs"),
+                describe(HomePins.plan(SHORTCUTS, rows), rows));
+    }
+
+    @Test public void otherSectionsAreOnlyReordered() {
+        ArrayList<Object> rows = rows(row(A, "A"), row(B, "B"), row(C, "C"));
+        HomePins.plan("anchors", rows);
+        HomePins.choices(Collections.singletonList(new Library.Item(X, "Road trip", "spotify:image:x", false)));
+        HomePins.setPinned(Arrays.asList(X, C));
+
+        for (String section : Arrays.asList("anchors", "wrapped", null)) {
+            assertEquals(section, Arrays.asList("C", "A", "B"), describe(HomePins.plan(section, rows), rows));
+        }
+        assertEquals(Arrays.asList("new Road trip", "C", "A"), describe(HomePins.plan(SHORTCUTS, rows), rows));
+    }
+
+    @Test public void theGridKeepsSpotifysSizeUnlessThePinsNeedMoreButNeverPassesTen() {
+        List<Library.Item> library = new ArrayList<>();
+        List<String> saved = new ArrayList<>();
+        for (int i = 0; i < 12; i++) {
+            library.add(new Library.Item("spotify:playlist:p" + i, "P" + i, "spotify:image:p" + i, false));
+            saved.add("spotify:playlist:p" + i);
+        }
+        HomePins.choices(library);
+        ArrayList<Object> ten = rows();
+        for (int i = 0; i < 10; i++) ten.add(row("spotify:playlist:s" + i, "S" + i));
+        ArrayList<Object> eight = new ArrayList<>(ten.subList(0, 8));
+        ArrayList<Object> three = new ArrayList<>(ten.subList(0, 3));
+
+        HomePins.setPinned(saved.subList(0, 3));
+        assertEquals(Arrays.asList("new P0", "new P1", "new P2", "S0", "S1", "S2", "S3", "S4"),
+                describe(HomePins.plan(SHORTCUTS, eight), eight));
+        HomePins.setPinned(saved.subList(0, 5));
+        assertEquals(Arrays.asList("new P0", "new P1", "new P2", "new P3", "new P4"),
+                describe(HomePins.plan(SHORTCUTS, three), three));
+        HomePins.setPinned(saved);
+        assertEquals(Arrays.asList("new P0", "new P1", "new P2", "new P3", "new P4", "new P5", "new P6", "new P7",
+                "new P8", "new P9"), describe(HomePins.plan(SHORTCUTS, three), three));
+        HomePins.setPinned(Collections.emptyList());
+        assertEquals(10, HomePins.plan(SHORTCUTS, ten).size());
+    }
+
+    @Test public void aPinWithoutATitleGetsNoTileAndDoesntGrowTheGrid() {
+        application.getSharedPreferences("spicetify_home_pins", 0).edit().putString("pins", "[{\"uri\":\"" + C
+                + "\"},{\"uri\":\"" + D + "\"},{\"uri\":\"" + X + "\",\"title\":\"Road trip\"}]").commit();
+        HomePins.initialize(application);
+        ArrayList<Object> rows = rows(row(A, "A"), row(B, "B"));
+
+        // Three pins are saved, but only one has a tile, so the grid keeps Spotify's two.
+        assertEquals(Arrays.asList("new Road trip", "A"), describe(HomePins.plan(SHORTCUTS, rows), rows));
+    }
+
+    @Test public void aTileForAPinWithoutACoverGetsAnEmptyImageNotNull() {
+        // Spotify's renderers call Uri.parse on the image, which throws on null. Its own tiles get "" for no image.
+        ArrayList<Object> rows = rows(row(A, "Home tile"), row(B, "B"));
+        HomePins.plan(SHORTCUTS, rows);
+        HomePins.setPinned(Collections.singletonList(A)); // a Home tile, which has no stored cover
+        ArrayList<Object> later = rows(row(B, "B"), row(C, "C"));
+
+        List<Object> plan = HomePins.plan(SHORTCUTS, later);
+
+        assertEquals(Arrays.asList("new Home tile", "B"), describe(plan, later));
+        assertArrayEquals(new String[]{A, "Home tile", ""}, (String[]) plan.get(0));
+    }
+
+    @Test public void aLikedSongsPinMatchesHomesTileWhicheverOfItsUrisEachUses() {
+        // A pin saved from Home under Liked Songs' list uri, while Home's tile now uses a user uri.
+        application.getSharedPreferences("spicetify_home_pins", 0).edit().putString("pins",
+                "[{\"uri\":\"spotify:playlist:37i9dQZF1F5p3rmiWPIYgZ\",\"title\":\"Liked Songs\"},"
+                        + "{\"uri\":\"" + X + "\",\"title\":\"Road trip\"}]").commit();
+        HomePins.initialize(application);
+        ArrayList<Object> rows = rows(row(A, "A"), row("spotify:user:me:collection", "Liked Songs"));
+
+        assertEquals("Home's tile moves, with no second one, and the next pin comes after it",
+                Arrays.asList("Liked Songs", "new Road trip"), describe(HomePins.plan(SHORTCUTS, rows), rows));
+        ArrayList<Object> without = rows(row(A, "A"), row(B, "B"));
+        List<Object> plan = HomePins.plan(SHORTCUTS, without);
+        assertEquals(Arrays.asList("new Liked Songs", "new Road trip"), describe(plan, without));
+        assertEquals("the tile opens the uri Spotify's navigator routes", "spotify:collection:tracks",
+                ((String[]) plan.get(0))[0]);
     }
 
     @Test public void corruptSavedPinsDoNotBreakHome() {
@@ -227,6 +354,30 @@ public class HomePinsTest {
 
     @Test public void aNullHomeIdStillLeavesTheOrderAlone() {
         assertArrayEquals(new int[]{0, 1}, HomePins.captureAndOrder(new String[]{null, A}, new String[]{"x", "A"}));
+    }
+
+    /** Spotify's row for a tile that opens {@code uri} and stands for it. */
+    private static p.goz0 row(String uri, String title) {
+        return row(uri, uri, title);
+    }
+
+    /** Spotify's row for a tile that opens {@code link} and stands for {@code entity}, hidable as a shortcut. */
+    private static p.goz0 row(String link, String entity, String title) {
+        return new p.goz0(new p.nnz0(link, 2, title, "spotify:image:" + title, false, entity));
+    }
+
+    private static ArrayList<Object> rows(Object... rows) {
+        return new ArrayList<>(Arrays.asList(rows));
+    }
+
+    /** Each entry of {@code plan}: the title of that very row of {@code rows}, or "new title" for a tile to make. */
+    private static List<String> describe(List<Object> plan, List<Object> rows) {
+        List<String> entries = new ArrayList<>();
+        for (Object entry : plan) {
+            if (entry instanceof String[]) entries.add("new " + ((String[]) entry)[1]);
+            else entries.add(rows.contains(entry) ? ((p.goz0) entry).a.b : "a row Spotify didn't send");
+        }
+        return entries;
     }
 
     private JSONArray saved() throws Exception {

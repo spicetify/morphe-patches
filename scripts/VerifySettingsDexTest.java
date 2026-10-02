@@ -311,6 +311,7 @@ class VerifySettingsDexTest {
         reject("missing home chip type", () -> VerifySettingsDex.classes.remove("Lp/ztx;"));
         reject("missing home chip callbacks",
                 () -> VerifySettingsDex.classes.remove(VerifySettingsDex.EXTENSIONS + "HomeChips;"));
+        reject("missing Home pins plan", () -> VerifySettingsDex.classes.remove(VerifySettingsDex.HOME + "HomePins;"));
         reject("missing native target", () -> VerifySettingsDex.classes.remove("Lp/xh0;"));
         reject(
                 "missing navigator method",

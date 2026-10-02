@@ -91,10 +91,12 @@ hooks, and that the extension holds the role and Compose tables; without it, non
 selectors, the local builder hook, both final URL hooks, the preference-aware
 wrapper, the settings dialog host, no added manifest components apart from
 server files, unchanged permissions, and the APK signature. It also compares
-all four installed settings bridge classes, and the four bridge classes the
-same bundle carries for the extensions' menus and Home chips, with the exact
-bundle used for patching, including their code and class metadata.
-This catches missing or replaced menu code that still has valid references.
+all four installed settings bridge classes, the four bridge classes the same
+bundle carries for the extensions' menus and Home chips, and its Home tile
+bridge class for Home pins, with the exact bundle used for patching, including
+their code and class metadata.
+This catches missing or replaced menu and tile code that still has valid
+references.
 Verify the bundle's release checksum and provenance separately; matching an
 untrusted bundle does not establish that its code is correct.
 It does not execute Spotify or cover every resource configuration.
