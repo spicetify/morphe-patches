@@ -17,6 +17,7 @@ import com.android.tools.smali.dexlib2.iface.instruction.FiveRegisterInstruction
 import com.android.tools.smali.dexlib2.iface.instruction.Instruction
 import com.android.tools.smali.dexlib2.iface.instruction.OneRegisterInstruction
 import com.android.tools.smali.dexlib2.iface.instruction.ReferenceInstruction
+import com.android.tools.smali.dexlib2.iface.instruction.TwoRegisterInstruction
 import com.android.tools.smali.dexlib2.iface.reference.MethodReference
 import com.android.tools.smali.dexlib2.iface.reference.TypeReference
 import com.android.tools.smali.dexlib2.iface.value.IntEncodedValue
@@ -27,6 +28,7 @@ private const val MENU_BRIDGE = "Lapp/spicetify/extension/spotify/extensions/nat
 private const val HOME_FEEDS = "Lp/qrl;"
 private const val CHIP_EVENTS = "Lp/a4v;"
 private const val HOME_CHIP_BRIDGE = "Lapp/spicetify/extension/spotify/extensions/nativebridge/HomeChipBridge;"
+private const val SHUFFLE_BUTTON = "Lp/xkp;"
 
 // Every protobuf field number the extension's Esperanto.java writes or reads, as class#NAME_FIELD_NUMBER.
 // These classes keep their names and constants, so a build that renumbers a field fails here. Map
@@ -95,7 +97,7 @@ val extensionsPatch = bytecodePatch(
         "in Spicetify settings, each off until you turn it on. Trash Bin skips the songs and artists you throw " +
         "away from their menus. Play a random song plays one from all of Spotify or your library, from a " +
         "Random pill on Home. Shuffle+ plays the playlist, album or Liked Songs that's playing in a truly " +
-        "random order.",
+        "random order when you long-press the shuffle button in Now Playing, or from its sheet.",
     default = false,
 ) {
     compatibleWith(spotifyCompatibility)
@@ -151,6 +153,15 @@ val extensionsPatch = bytecodePatch(
             throw PatchException("Spotify extensions ABI changed: $CHIP_EVENTS. Use the verified Spotify 9.1.80.2221 APK.")
         }
 
+        // N1: Now Playing's shuffle button gets its long-press at the end of its constructor, where v2
+        // still holds the button that 61 stored.
+        val shuffleButton = mutableClassDefBy(SHUFFLE_BUTTON).methods.single {
+            it.name == "<init>" && it.parameterTypes == listOf("Landroid/content/Context;")
+        }
+        if (!isShuffleButtonEnd(shuffleButton.implementation!!.instructions, 62)) {
+            throw PatchException("Spotify extensions ABI changed: $SHUFFLE_BUTTON. Use the verified Spotify 9.1.80.2221 APK.")
+        }
+
         constructor.addInstructions(index,
             "invoke-static/range {p0 .. p0}, Lapp/spicetify/extension/spotify/extensions/PlayerBridge;->onCosmos(Ljava/lang/Object;)V")
         trackMenu.addInstructions(1678, """
@@ -171,6 +182,8 @@ val extensionsPatch = bytecodePatch(
             move-result v1
             if-nez v1, :handled
         """.trimIndent(), ExternalLabel("handled", chipEvents.getInstruction(1214)))
+        shuffleButton.addInstructions(62,
+            "invoke-static {v2}, Lapp/spicetify/extension/spotify/extensions/NowPlayingShuffle;->onButton(Landroid/view/View;)V")
         enableSetting("extensions")
     }
 }
@@ -211,6 +224,17 @@ internal fun isChipTapSend(instructions: List<Instruction>, index: Int, end: Int
     return isHookSite(send, Opcode.INVOKE_VIRTUAL, "Lp/bay;->invoke(Ljava/lang/Object;)Ljava/lang/Object;") &&
         (send as FiveRegisterInstruction).registerC == 3 && send.registerD == 2 &&
         isHookSite(done, Opcode.RETURN_OBJECT) && (done as OneRegisterInstruction).registerA == 13
+}
+
+/**
+ * Whether [index] holds N1's place in the shuffle button's constructor: `return-void`, right after
+ * `iput-object v2, v4, Lp/xkp;->i`, which stores the button that N1 passes on from v2.
+ */
+internal fun isShuffleButtonEnd(instructions: List<Instruction>, index: Int): Boolean {
+    val store = instructions.getOrNull(index - 1)
+    return isHookSite(store, Opcode.IPUT_OBJECT, "$SHUFFLE_BUTTON->i:Landroidx/appcompat/widget/AppCompatImageButton;") &&
+        (store as TwoRegisterInstruction).registerA == 2 && store.registerB == 4 &&
+        isHookSite(instructions.getOrNull(index), Opcode.RETURN_VOID)
 }
 
 /** Whether [instruction] is `new-instance v1, Lp/krj;`, the menu model that T1 and T2 insert before. */

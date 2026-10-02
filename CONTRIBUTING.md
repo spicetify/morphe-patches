@@ -132,7 +132,8 @@ after its native router starts scheduling, that the song and artist menus pass
 their frozen item lists and rows through the menu bridge right before building
 the menu, that Home's filter chips pass through the chip bridge right after
 Spotify rewrites them, that each chip tap reaches the chip bridge before Home's
-loop and skips it when the bridge takes the tap, that
+loop and skips it when the bridge takes the tap, that Now Playing's shuffle
+button reaches Shuffle+ right after its constructor stores it, that
 `InstalledPatches.extensions()` is on, and that no hook is present and the
 capability is off without the patch. The patch also
 checks each field number of the player, playlist, metadata, and Your Library

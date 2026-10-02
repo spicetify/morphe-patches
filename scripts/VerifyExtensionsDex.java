@@ -27,6 +27,7 @@ class VerifyExtensionsDex {
     static final String MENU_BRIDGE = EXTENSIONS + "nativebridge/MenuBridge;";
     static final String CHIP_BRIDGE = EXTENSIONS + "nativebridge/HomeChipBridge;";
     static final String INSTALLED = "Lapp/spicetify/extension/spotify/settings/InstalledPatches;";
+    static final String NOW_PLAYING_SHUFFLE = EXTENSIONS + "NowPlayingShuffle;";
 
     static void require(boolean condition, String message) {
         if (!condition) throw new AssertionError(message);
@@ -52,7 +53,7 @@ class VerifyExtensionsDex {
         for (var entry : dex.getDexEntryNames()) {
             for (var definition : dex.getEntry(entry).getDexFile().getClasses()) classes.put(definition.getType(), definition);
         }
-        int bridgeHooks = 0, trackHooks = 0, artistHooks = 0, chipsHooks = 0, tapHooks = 0;
+        int bridgeHooks = 0, trackHooks = 0, artistHooks = 0, chipsHooks = 0, tapHooks = 0, shuffleHooks = 0;
         for (var definition : classes.values()) {
             if (definition.getType().startsWith(EXTENSIONS)) continue;
             for (var method : definition.getMethods()) {
@@ -74,15 +75,19 @@ class VerifyExtensionsDex {
                     } else if (calls(code.get(index), CHIP_BRIDGE, "onTap")) {
                         tapHooks++;
                         verifyTapHook(definition, method, code, index);
+                    } else if (calls(code.get(index), NOW_PLAYING_SHUFFLE, "onButton")) {
+                        shuffleHooks++;
+                        verifyShuffleHook(definition, method, code, index);
                     }
                 }
             }
         }
         int expected = enabled ? 1 : 0;
         require(bridgeHooks == expected && trackHooks == expected && artistHooks == expected
-                && chipsHooks == expected && tapHooks == expected,
+                && chipsHooks == expected && tapHooks == expected && shuffleHooks == expected,
                 "Unexpected hook counts: player bridge " + bridgeHooks + ", track menu " + trackHooks
-                        + ", artist menu " + artistHooks + ", Home chips " + chipsHooks + ", Home chip tap " + tapHooks);
+                        + ", artist menu " + artistHooks + ", Home chips " + chipsHooks + ", Home chip tap " + tapHooks
+                        + ", Now Playing shuffle " + shuffleHooks);
         verifyCapability(classes.get(INSTALLED), enabled);
         if (enabled) {
             requireTarget(classes, BRIDGE, "onCosmos", List.of("Ljava/lang/Object;"), "V");
@@ -90,8 +95,10 @@ class VerifyExtensionsDex {
             requireTarget(classes, MENU_BRIDGE, "artist", List.of("Ljava/util/List;", "Ljava/lang/Object;"), "Ljava/util/List;");
             requireTarget(classes, CHIP_BRIDGE, "chips", List.of("Ljava/util/List;"), "Ljava/util/List;");
             requireTarget(classes, CHIP_BRIDGE, "onTap", List.of("Ljava/lang/String;"), "Z");
+            requireTarget(classes, NOW_PLAYING_SHUFFLE, "onButton", List.of("Landroid/view/View;"), "V");
         }
-        System.out.println("Spicetify extensions verified: " + (bridgeHooks + trackHooks + artistHooks + chipsHooks + tapHooks)
+        System.out.println("Spicetify extensions verified: "
+                + (bridgeHooks + trackHooks + artistHooks + chipsHooks + tapHooks + shuffleHooks)
                 + " hook(s), selected=" + enabled);
     }
 
@@ -211,6 +218,28 @@ class VerifyExtensionsDex {
         require(skip >= 0 && code.get(skip).getOpcode() == Opcode.RETURN_OBJECT
                 && ((OneRegisterInstruction) code.get(skip)).getRegisterA() == 13,
                 "Home chip tap hook must skip to the case's return");
+    }
+
+    /**
+     * N1 hands Now Playing's shuffle button, which its constructor has just stored from v2 into field i, to
+     * NowPlayingShuffle right before the constructor returns.
+     */
+    static void verifyShuffleHook(ClassDef owner, Method method, List<Instruction> code, int index) {
+        require(owner.getType().equals("Lp/xkp;") && method.getName().equals("<init>")
+                && method.getParameterTypes().equals(List.of("Landroid/content/Context;")),
+                "Now Playing shuffle hook is outside Lp/xkp;'s constructor");
+        require(code.get(index).getOpcode() == Opcode.INVOKE_STATIC
+                && code.get(index) instanceof FiveRegisterInstruction call
+                && call.getRegisterCount() == 1 && call.getRegisterC() == 2,
+                "Now Playing shuffle hook must pass the button in v2");
+        require(index >= 1 && code.get(index - 1).getOpcode() == Opcode.IPUT_OBJECT
+                && code.get(index - 1) instanceof TwoRegisterInstruction store
+                && store.getRegisterA() == 2 && store.getRegisterB() == 4
+                && ((ReferenceInstruction) store).getReference().toString()
+                    .equals("Lp/xkp;->i:Landroidx/appcompat/widget/AppCompatImageButton;"),
+                "Now Playing shuffle hook must follow the store of the button");
+        require(index + 1 < code.size() && code.get(index + 1).getOpcode() == Opcode.RETURN_VOID,
+                "Now Playing shuffle hook must sit right before the constructor's return");
     }
 
     /** The index of the instruction that branch {@code index} jumps to, or -1 when no instruction starts there. */

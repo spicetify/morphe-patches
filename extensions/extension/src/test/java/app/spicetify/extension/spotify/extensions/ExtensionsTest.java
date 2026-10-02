@@ -98,8 +98,8 @@ public class ExtensionsTest {
         assertEquals(Extensions.SHUFFLE_PLUS, Extensions.port("spicetify/cli/Extensions/shuffle+.js"));
         assertFalse("a desktop Marketplace lists it", Extensions.androidOnly().contains(Extensions.SHUFFLE_PLUS));
         assertEquals("Shuffle+", Extensions.title(Extensions.SHUFFLE_PLUS));
-        assertEquals("Play the playlist, album or Liked Songs that's playing in a truly random order.",
-                Extensions.description(Extensions.SHUFFLE_PLUS));
+        assertEquals("Long-press the shuffle button in Now Playing to play the playlist, album or Liked Songs that's"
+                + " playing in a truly random order.", Extensions.description(Extensions.SHUFFLE_PLUS));
     }
 
     @Test

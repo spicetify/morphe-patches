@@ -4,7 +4,9 @@ import com.android.tools.smali.dexlib2.Opcode
 import com.android.tools.smali.dexlib2.immutable.instruction.ImmutableInstruction10x
 import com.android.tools.smali.dexlib2.immutable.instruction.ImmutableInstruction11x
 import com.android.tools.smali.dexlib2.immutable.instruction.ImmutableInstruction21c
+import com.android.tools.smali.dexlib2.immutable.instruction.ImmutableInstruction22c
 import com.android.tools.smali.dexlib2.immutable.instruction.ImmutableInstruction35c
+import com.android.tools.smali.dexlib2.immutable.reference.ImmutableFieldReference
 import com.android.tools.smali.dexlib2.immutable.reference.ImmutableMethodReference
 import com.android.tools.smali.dexlib2.immutable.reference.ImmutableTypeReference
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -14,6 +16,7 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 private const val ARRAY_LIST = "Ljava/util/ArrayList;"
+private const val BUTTON = "Landroidx/appcompat/widget/AppCompatImageButton;"
 
 class ExtensionsPatchTest {
     @Test
@@ -93,6 +96,29 @@ class ExtensionsPatchTest {
         assertFalse(isChipTapSend(listOf(sendTap(3, 2), ImmutableInstruction11x(Opcode.THROW, 13)), 0, 1))
         assertFalse(isChipTapSend(listOf(sendTap(3, 2), returnVoid), 0, 1))
     }
+
+    @Test
+    fun `accepts the end of the shuffle button's constructor that N1 goes in before`() {
+        assertTrue(isShuffleButtonEnd(listOf(storeButton(2, 4), returnVoid), 1))
+    }
+
+    @Test
+    fun `refuses any other end of the shuffle button's constructor`() {
+        val end = listOf(storeButton(2, 4), returnVoid)
+        assertFalse(isShuffleButtonEnd(end, 0))
+        assertFalse(isShuffleButtonEnd(end, 2))
+        assertFalse(isShuffleButtonEnd(listOf(storeButton(3, 4), returnVoid), 1))
+        assertFalse(isShuffleButtonEnd(listOf(storeButton(2, 5), returnVoid), 1))
+        assertFalse(isShuffleButtonEnd(listOf(field(Opcode.IPUT_OBJECT, 2, 4, "Lp/xkp;", "h", BUTTON), returnVoid), 1))
+        assertFalse(isShuffleButtonEnd(listOf(field(Opcode.IGET_OBJECT, 2, 4, "Lp/xkp;", "i", BUTTON), returnVoid), 1))
+        assertFalse(isShuffleButtonEnd(listOf(storeButton(2, 4), returnObject(2)), 1))
+    }
+
+    /** `iput-object v[value], v[instance], Lp/xkp;->i`, the shuffle button's constructor storing its button. */
+    private fun storeButton(value: Int, instance: Int) = field(Opcode.IPUT_OBJECT, value, instance, "Lp/xkp;", "i", BUTTON)
+
+    private fun field(opcode: Opcode, value: Int, instance: Int, owner: String, name: String, type: String) =
+        ImmutableInstruction22c(opcode, value, instance, ImmutableFieldReference(owner, name, type))
 
     /** `move-result-object v[register]`, which takes `Lp/xqw;->a`'s chips in Home's feed mapping. */
     private fun chips(register: Int) = ImmutableInstruction11x(Opcode.MOVE_RESULT_OBJECT, register)

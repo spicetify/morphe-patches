@@ -29,7 +29,8 @@ public final class Extensions {
         {RANDOM_SONG, null, "Play a random song",
                 "Tap Random on Home, next to All, to play one random song from all of Spotify or from your library."},
         {SHUFFLE_PLUS, "spicetify/cli/Extensions/shuffle+.js", "Shuffle+",
-                "Play the playlist, album or Liked Songs that's playing in a truly random order."},
+                "Long-press the shuffle button in Now Playing to play the playlist, album or Liked Songs that's playing"
+                        + " in a truly random order."},
     };
     private static final String PREFERENCES = "spicetify_extensions";
     private static final Map<String, SwitchListener> SWITCHES = new ConcurrentHashMap<>();

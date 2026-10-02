@@ -7,6 +7,7 @@ import com.android.tools.smali.dexlib2.Opcodes;
 import com.android.tools.smali.dexlib2.iface.instruction.Instruction;
 import com.android.tools.smali.dexlib2.immutable.*;
 import com.android.tools.smali.dexlib2.immutable.instruction.*;
+import com.android.tools.smali.dexlib2.immutable.reference.ImmutableFieldReference;
 import com.android.tools.smali.dexlib2.immutable.reference.ImmutableMethodReference;
 import com.android.tools.smali.dexlib2.immutable.reference.ImmutableTypeReference;
 import com.android.tools.smali.dexlib2.writer.pool.DexPool;
@@ -16,6 +17,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class VerifyExtensionsDexTest {
     static final String MENUS = VerifyExtensionsDex.MENU_BRIDGE;
     static final String CHIPS = VerifyExtensionsDex.CHIP_BRIDGE;
+    static final String SHUFFLE = VerifyExtensionsDex.NOW_PLAYING_SHUFFLE;
 
     enum Change {
         NONE, NO_HOOKS, MISSING_HOOK, SECOND_HOOK, WRONG_CALLER, WRONG_REGISTER, BEFORE_SCHEDULING, PRIVATE_TARGET,
@@ -26,7 +28,10 @@ class VerifyExtensionsDexTest {
         CHIPS_BEFORE_THE_REWRITE, CHIPS_AFTER_THE_COPY, MISSING_TAP_HOOK, TAP_IN_ANOTHER_CLASS,
         TAP_PASSES_ANOTHER_REGISTER, TAP_ANSWER_IGNORED, TAP_SKIPS_ELSEWHERE, TAP_AFTER_THE_SEND,
         TAP_BEFORE_THE_EVENT, MISSING_CHIP_TARGET, PRIVATE_TAP_TARGET, CHIPS_AFTER_ANOTHER_CALL,
-        CHIPS_BEFORE_ANOTHER_COPY, TAP_AFTER_ANOTHER_EVENT, TAP_BRANCHES_ON_ANOTHER_REGISTER, TAP_BEFORE_SOMETHING_ELSE
+        CHIPS_BEFORE_ANOTHER_COPY, TAP_AFTER_ANOTHER_EVENT, TAP_BRANCHES_ON_ANOTHER_REGISTER, TAP_BEFORE_SOMETHING_ELSE,
+        MISSING_SHUFFLE_HOOK, SHUFFLE_IN_ANOTHER_CLASS, SHUFFLE_IN_ANOTHER_METHOD, SHUFFLE_PASSES_ANOTHER_REGISTER,
+        SHUFFLE_BEFORE_THE_STORE, SHUFFLE_AFTER_ANOTHER_FIELD, SHUFFLE_AFTER_ANOTHER_REGISTERS_STORE,
+        SHUFFLE_BEFORE_SOMETHING_ELSE, MISSING_SHUFFLE_TARGET, PRIVATE_SHUFFLE_TARGET
     }
 
     @Test void acceptsEveryHook() throws Exception { check(Change.NONE, true); }
@@ -73,6 +78,16 @@ class VerifyExtensionsDexTest {
     @Test void rejectsATapHookAfterAnotherEvent() { rejects(Change.TAP_AFTER_ANOTHER_EVENT); }
     @Test void rejectsATapHookThatBranchesOnAnotherRegister() { rejects(Change.TAP_BRANCHES_ON_ANOTHER_REGISTER); }
     @Test void rejectsATapHookBeforeSomethingElse() { rejects(Change.TAP_BEFORE_SOMETHING_ELSE); }
+    @Test void rejectsAMissingShuffleHook() { rejects(Change.MISSING_SHUFFLE_HOOK); }
+    @Test void rejectsAShuffleHookInAnotherClass() { rejects(Change.SHUFFLE_IN_ANOTHER_CLASS); }
+    @Test void rejectsAShuffleHookInAnotherMethod() { rejects(Change.SHUFFLE_IN_ANOTHER_METHOD); }
+    @Test void rejectsAShuffleHookThatPassesAnotherRegister() { rejects(Change.SHUFFLE_PASSES_ANOTHER_REGISTER); }
+    @Test void rejectsAShuffleHookBeforeTheButtonIsStored() { rejects(Change.SHUFFLE_BEFORE_THE_STORE); }
+    @Test void rejectsAShuffleHookAfterAnotherFieldIsStored() { rejects(Change.SHUFFLE_AFTER_ANOTHER_FIELD); }
+    @Test void rejectsAShuffleHookAfterAnotherRegisterIsStored() { rejects(Change.SHUFFLE_AFTER_ANOTHER_REGISTERS_STORE); }
+    @Test void rejectsAShuffleHookBeforeSomethingElse() { rejects(Change.SHUFFLE_BEFORE_SOMETHING_ELSE); }
+    @Test void rejectsAMissingShuffleTarget() { rejects(Change.MISSING_SHUFFLE_TARGET); }
+    @Test void rejectsAPrivateShuffleTarget() { rejects(Change.PRIVATE_SHUFFLE_TARGET); }
 
     void rejects(Change change) {
         assertThrows(AssertionError.class, () -> check(change, true));
@@ -107,6 +122,13 @@ class VerifyExtensionsDexTest {
                 target(CHIPS, "chips", List.of("Ljava/util/List;"), "Ljava/util/List;", 0x09),
                 method(CHIPS, "onTap", List.of("Ljava/lang/String;"), "Z", change == Change.PRIVATE_TAP_TARGET ? 0x0a : 0x09,
                     2, List.of(new ImmutableInstruction11n(Opcode.CONST_4, 0, 0), new ImmutableInstruction11x(Opcode.RETURN, 0))))));
+        }
+        boolean buttonMoved = change == Change.SHUFFLE_IN_ANOTHER_CLASS;
+        classes.add(shuffleButton("Lp/xkp;", buttonMoved ? Change.MISSING_SHUFFLE_HOOK : change));
+        if (buttonMoved) classes.add(shuffleButton("Lp/otherbutton;", Change.NONE));
+        if (change != Change.MISSING_SHUFFLE_TARGET) {
+            classes.add(definition(SHUFFLE, target(SHUFFLE, "onButton", List.of("Landroid/view/View;"), "V",
+                change == Change.PRIVATE_SHUFFLE_TARGET ? 0x0a : 0x09)));
         }
         if (change == Change.SECOND_HOOK || change == Change.WRONG_CALLER) {
             classes.add(definition("Lp/other;", method("Lp/other;", "run", List.of(), "V", 0x09, 4,
@@ -238,6 +260,40 @@ class VerifyExtensionsDexTest {
             new ImmutableInstruction11x(Opcode.MOVE_RESULT, 1),
             new ImmutableInstruction21t(change == Change.TAP_ANSWER_IGNORED ? Opcode.IF_EQZ : Opcode.IF_NEZ,
                 change == Change.TAP_BRANCHES_ON_ANOTHER_REGISTER ? 2 : 1, offset));
+    }
+
+    /**
+     * Now Playing's shuffle button, Lp/xkp;: its constructor stores the button from v2 in field i, N1 hands v2 to
+     * NowPlayingShuffle, and the constructor returns. 6 registers, so this is v4. SHUFFLE_IN_ANOTHER_METHOD
+     * moves that ending, hook and all, into another method of the class with the same parameters, and
+     * SHUFFLE_IN_ANOTHER_CLASS gives the same code, still storing into Lp/xkp;'s field, to another class.
+     */
+    ImmutableClassDef shuffleButton(String owner, Change change) {
+        boolean hooked = !unhooked(change) && change != Change.MISSING_SHUFFLE_HOOK;
+        boolean moved = change == Change.SHUFFLE_IN_ANOTHER_METHOD;
+        var methods = new ArrayList<ImmutableMethod>();
+        methods.add(method(owner, "<init>", List.of("Landroid/content/Context;"), "V", 0x10001, 6,
+            buttonEnd(change, hooked && !moved)));
+        if (moved) {
+            methods.add(method(owner, "a", List.of("Landroid/content/Context;"), "V", 0x11, 6, buttonEnd(Change.NONE, true)));
+        }
+        return new ImmutableClassDef(owner, 1, "Ljava/lang/Object;", List.of(), null, Set.of(), List.of(), methods);
+    }
+
+    /** The store of the button into Lp/xkp;'s field, N1 when {@code hooked}, and the return. */
+    List<Instruction> buttonEnd(Change change, boolean hooked) {
+        var store = new ImmutableInstruction22c(Opcode.IPUT_OBJECT,
+            change == Change.SHUFFLE_AFTER_ANOTHER_REGISTERS_STORE ? 3 : 2, 4, new ImmutableFieldReference("Lp/xkp;",
+                change == Change.SHUFFLE_AFTER_ANOTHER_FIELD ? "h" : "i", "Landroidx/appcompat/widget/AppCompatImageButton;"));
+        var hook = new ImmutableInstruction35c(Opcode.INVOKE_STATIC, 1, change == Change.SHUFFLE_PASSES_ANOTHER_REGISTER ? 3 : 2,
+            0, 0, 0, 0, new ImmutableMethodReference(SHUFFLE, "onButton", List.of("Landroid/view/View;"), "V"));
+        List<Instruction> code = new ArrayList<>();
+        if (hooked && change == Change.SHUFFLE_BEFORE_THE_STORE) code.add(hook);
+        code.add(store);
+        if (hooked && change != Change.SHUFFLE_BEFORE_THE_STORE) code.add(hook);
+        if (change == Change.SHUFFLE_BEFORE_SOMETHING_ELSE) code.add(new ImmutableInstruction10x(Opcode.NOP));
+        code.add(new ImmutableInstruction10x(Opcode.RETURN_VOID));
+        return code;
     }
 
     ImmutableInstruction3rc bridgeHook(int register) {

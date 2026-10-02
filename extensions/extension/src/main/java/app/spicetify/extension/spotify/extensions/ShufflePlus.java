@@ -14,10 +14,10 @@ import java.util.Random;
  * Liked Songs that's playing, shuffles them with Fisher-Yates, and plays that exact order with
  * Spotify's own shuffle off.
  * <p>
- * Threading: a run starts on the main thread, from its sheet's button, and returns at once: it only
- * posts its first step to the bridge thread. Each later step runs there too, in the last one's
- * callback, and none of them waits: a retry for a list still loading is put off with postDelayed.
- * Toasts are posted back to the main thread.
+ * Threading: a run starts on the main thread, from Now Playing's shuffle button or its sheet's button,
+ * and returns at once: it only posts its first step to the bridge thread. Each later step runs there
+ * too, in the last one's callback, and none of them waits: a retry for a list still loading is put off
+ * with postDelayed. Toasts are posted back to the main thread.
  */
 public final class ShufflePlus {
     /** A playlist or Liked Songs is listed this many songs at a time. */
@@ -62,7 +62,7 @@ public final class ShufflePlus {
         Collections.shuffle(list, random);
     }
 
-    /** Its sheet's button: shuffles what's playing. On the main thread, it only posts the run. */
+    /** Now Playing's long-press and its sheet's button: shuffles what's playing. It only posts the run. */
     public static void shuffleWhatsPlaying(Context context) {
         shuffleWhatsPlaying(context, RandomSong.LOADING_RETRY_MILLIS, RANDOM);
     }
