@@ -29,6 +29,9 @@ private const val HOME_FEEDS = "Lp/qrl;"
 private const val CHIP_EVENTS = "Lp/a4v;"
 private const val HOME_CHIP_BRIDGE = "Lapp/spicetify/extension/spotify/extensions/nativebridge/HomeChipBridge;"
 private const val SHUFFLE_BUTTON = "Lp/xkp;"
+private const val LIST_MENU = "Lp/sv70;"
+private const val PLAYLIST_MENU_PROVIDER =
+    "Lapp/spicetify/extension/spotify/extensions/nativebridge/PlaylistMenuProvider;"
 
 // Every protobuf field number the extension's Esperanto.java writes or reads, as class#NAME_FIELD_NUMBER.
 // These classes keep their names and constants, so a build that renumbers a field fails here. Map
@@ -96,8 +99,9 @@ val extensionsPatch = bytecodePatch(
     description = "Adds Android versions of Spicetify extensions to the Spicetify Marketplace's Extensions tab, " +
         "in Spicetify settings, each off until you turn it on. Trash Bin skips the songs and artists you throw " +
         "away from their menus. Play a random song plays one from all of Spotify or your library, from a " +
-        "Random pill on Home. Shuffle+ plays the playlist, album or Liked Songs that's playing in a truly " +
-        "random order when you long-press the shuffle button in Now Playing, or from its sheet.",
+        "Random pill on Home. Shuffle+ plays a playlist, album or Liked Songs in a truly random order when you " +
+        "long-press the shuffle button in Now Playing, choose Shuffle+ this playlist in a playlist's menu, or use " +
+        "its sheet.",
     default = false,
 ) {
     compatibleWith(spotifyCompatibility)
@@ -162,6 +166,16 @@ val extensionsPatch = bytecodePatch(
             throw PatchException("Spotify extensions ABI changed: $SHUFFLE_BUTTON. Use the verified Spotify 9.1.80.2221 APK.")
         }
 
+        // M1: the list menu, which playlists and Liked Songs open, gets one more item provider. v4 holds
+        // the providers until 4 stores them.
+        val listMenu = mutableClassDefBy(LIST_MENU).methods.single {
+            it.name == "<init>" &&
+                it.parameterTypes == listOf("Lp/y3w0;", "Lp/vz1;", "Ljava/util/List;", "Ljava/util/List;", "Lp/a94;")
+        }
+        if (!isItemProvidersStore(listMenu.implementation!!.instructions.getOrNull(4))) {
+            throw PatchException("Spotify extensions ABI changed: $LIST_MENU. Use the verified Spotify 9.1.80.2221 APK.")
+        }
+
         constructor.addInstructions(index,
             "invoke-static/range {p0 .. p0}, Lapp/spicetify/extension/spotify/extensions/PlayerBridge;->onCosmos(Ljava/lang/Object;)V")
         trackMenu.addInstructions(1678, """
@@ -184,6 +198,10 @@ val extensionsPatch = bytecodePatch(
         """.trimIndent(), ExternalLabel("handled", chipEvents.getInstruction(1214)))
         shuffleButton.addInstructions(62,
             "invoke-static {v2}, Lapp/spicetify/extension/spotify/extensions/NowPlayingShuffle;->onButton(Landroid/view/View;)V")
+        listMenu.addInstructions(4, """
+            invoke-static {v4}, $PLAYLIST_MENU_PROVIDER->providers(Ljava/util/List;)Ljava/util/List;
+            move-result-object v4
+        """.trimIndent())
         enableSetting("extensions")
     }
 }
@@ -236,6 +254,14 @@ internal fun isShuffleButtonEnd(instructions: List<Instruction>, index: Int): Bo
         (store as TwoRegisterInstruction).registerA == 2 && store.registerB == 4 &&
         isHookSite(instructions.getOrNull(index), Opcode.RETURN_VOID)
 }
+
+/**
+ * Whether [instruction] is `iput-object v4, v0, Lp/sv70;->d`, the list menu's constructor storing its item
+ * providers, which M1 replaces in v4 first.
+ */
+internal fun isItemProvidersStore(instruction: Instruction?): Boolean =
+    isHookSite(instruction, Opcode.IPUT_OBJECT, "$LIST_MENU->d:Ljava/util/List;") &&
+        (instruction as TwoRegisterInstruction).registerA == 4 && instruction.registerB == 0
 
 /** Whether [instruction] is `new-instance v1, Lp/krj;`, the menu model that T1 and T2 insert before. */
 internal fun isMenuModel(instruction: Instruction?): Boolean =

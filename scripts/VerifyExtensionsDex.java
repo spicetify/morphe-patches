@@ -28,6 +28,7 @@ class VerifyExtensionsDex {
     static final String CHIP_BRIDGE = EXTENSIONS + "nativebridge/HomeChipBridge;";
     static final String INSTALLED = "Lapp/spicetify/extension/spotify/settings/InstalledPatches;";
     static final String NOW_PLAYING_SHUFFLE = EXTENSIONS + "NowPlayingShuffle;";
+    static final String PLAYLIST_MENU_PROVIDER = EXTENSIONS + "nativebridge/PlaylistMenuProvider;";
 
     static void require(boolean condition, String message) {
         if (!condition) throw new AssertionError(message);
@@ -53,7 +54,8 @@ class VerifyExtensionsDex {
         for (var entry : dex.getDexEntryNames()) {
             for (var definition : dex.getEntry(entry).getDexFile().getClasses()) classes.put(definition.getType(), definition);
         }
-        int bridgeHooks = 0, trackHooks = 0, artistHooks = 0, chipsHooks = 0, tapHooks = 0, shuffleHooks = 0;
+        int bridgeHooks = 0, trackHooks = 0, artistHooks = 0, chipsHooks = 0, tapHooks = 0, shuffleHooks = 0,
+                providersHooks = 0;
         for (var definition : classes.values()) {
             if (definition.getType().startsWith(EXTENSIONS)) continue;
             for (var method : definition.getMethods()) {
@@ -78,16 +80,20 @@ class VerifyExtensionsDex {
                     } else if (calls(code.get(index), NOW_PLAYING_SHUFFLE, "onButton")) {
                         shuffleHooks++;
                         verifyShuffleHook(definition, method, code, index);
+                    } else if (calls(code.get(index), PLAYLIST_MENU_PROVIDER, "providers")) {
+                        providersHooks++;
+                        verifyProvidersHook(definition, method, code, index);
                     }
                 }
             }
         }
         int expected = enabled ? 1 : 0;
         require(bridgeHooks == expected && trackHooks == expected && artistHooks == expected
-                && chipsHooks == expected && tapHooks == expected && shuffleHooks == expected,
+                && chipsHooks == expected && tapHooks == expected && shuffleHooks == expected
+                && providersHooks == expected,
                 "Unexpected hook counts: player bridge " + bridgeHooks + ", track menu " + trackHooks
                         + ", artist menu " + artistHooks + ", Home chips " + chipsHooks + ", Home chip tap " + tapHooks
-                        + ", Now Playing shuffle " + shuffleHooks);
+                        + ", Now Playing shuffle " + shuffleHooks + ", playlist menu " + providersHooks);
         verifyCapability(classes.get(INSTALLED), enabled);
         if (enabled) {
             requireTarget(classes, BRIDGE, "onCosmos", List.of("Ljava/lang/Object;"), "V");
@@ -96,9 +102,10 @@ class VerifyExtensionsDex {
             requireTarget(classes, CHIP_BRIDGE, "chips", List.of("Ljava/util/List;"), "Ljava/util/List;");
             requireTarget(classes, CHIP_BRIDGE, "onTap", List.of("Ljava/lang/String;"), "Z");
             requireTarget(classes, NOW_PLAYING_SHUFFLE, "onButton", List.of("Landroid/view/View;"), "V");
+            requireTarget(classes, PLAYLIST_MENU_PROVIDER, "providers", List.of("Ljava/util/List;"), "Ljava/util/List;");
         }
         System.out.println("Spicetify extensions verified: "
-                + (bridgeHooks + trackHooks + artistHooks + chipsHooks + tapHooks + shuffleHooks)
+                + (bridgeHooks + trackHooks + artistHooks + chipsHooks + tapHooks + shuffleHooks + providersHooks)
                 + " hook(s), selected=" + enabled);
     }
 
@@ -240,6 +247,28 @@ class VerifyExtensionsDex {
                 "Now Playing shuffle hook must follow the store of the button");
         require(index + 1 < code.size() && code.get(index + 1).getOpcode() == Opcode.RETURN_VOID,
                 "Now Playing shuffle hook must sit right before the constructor's return");
+    }
+
+    /**
+     * M1 hands the list menu's item providers, v4, to the playlist menu provider and puts its answer back in v4
+     * right before Lp/sv70;'s constructor stores them in its field d.
+     */
+    static void verifyProvidersHook(ClassDef owner, Method method, List<Instruction> code, int index) {
+        require(owner.getType().equals("Lp/sv70;") && method.getName().equals("<init>")
+                && method.getParameterTypes().equals(
+                    List.of("Lp/y3w0;", "Lp/vz1;", "Ljava/util/List;", "Ljava/util/List;", "Lp/a94;")),
+                "Playlist menu hook is outside Lp/sv70;'s constructor");
+        require(code.get(index).getOpcode() == Opcode.INVOKE_STATIC
+                && code.get(index) instanceof FiveRegisterInstruction call
+                && call.getRegisterCount() == 1 && call.getRegisterC() == 4,
+                "Playlist menu hook must pass the item providers in v4");
+        require(index + 2 < code.size() && code.get(index + 1).getOpcode() == Opcode.MOVE_RESULT_OBJECT
+                && ((OneRegisterInstruction) code.get(index + 1)).getRegisterA() == 4
+                && code.get(index + 2).getOpcode() == Opcode.IPUT_OBJECT
+                && code.get(index + 2) instanceof TwoRegisterInstruction store
+                && store.getRegisterA() == 4 && store.getRegisterB() == 0
+                && ((ReferenceInstruction) store).getReference().toString().equals("Lp/sv70;->d:Ljava/util/List;"),
+                "Playlist menu hook's providers must be the ones the menu stores");
     }
 
     /** The index of the instruction that branch {@code index} jumps to, or -1 when no instruction starts there. */

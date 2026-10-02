@@ -91,7 +91,7 @@ hooks, and that the extension holds the role and Compose tables; without it, non
 selectors, the local builder hook, both final URL hooks, the preference-aware
 wrapper, the settings dialog host, no added manifest components apart from
 server files, unchanged permissions, and the APK signature. It also compares
-all four installed settings bridge classes, and the three bridge classes the
+all four installed settings bridge classes, and the four bridge classes the
 same bundle carries for the extensions' menus and Home chips, with the exact
 bundle used for patching, including their code and class metadata.
 This catches missing or replaced menu code that still has valid references.
@@ -133,9 +133,10 @@ their frozen item lists and rows through the menu bridge right before building
 the menu, that Home's filter chips pass through the chip bridge right after
 Spotify rewrites them, that each chip tap reaches the chip bridge before Home's
 loop and skips it when the bridge takes the tap, that Now Playing's shuffle
-button reaches Shuffle+ right after its constructor stores it, that
-`InstalledPatches.extensions()` is on, and that no hook is present and the
-capability is off without the patch. The patch also
+button reaches Shuffle+ right after its constructor stores it, that the list
+menu's item providers gain the playlist menu provider right before the menu
+stores them, that `InstalledPatches.extensions()` is on, and that no hook is
+present and the capability is off without the patch. The patch also
 checks each field number of the player, playlist, metadata, and Your Library
 messages that the extensions read or write;
 `verify-failures.py --case changed-player-protocol` checks that refusal.

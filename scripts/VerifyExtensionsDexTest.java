@@ -18,6 +18,8 @@ class VerifyExtensionsDexTest {
     static final String MENUS = VerifyExtensionsDex.MENU_BRIDGE;
     static final String CHIPS = VerifyExtensionsDex.CHIP_BRIDGE;
     static final String SHUFFLE = VerifyExtensionsDex.NOW_PLAYING_SHUFFLE;
+    static final String PROVIDER = VerifyExtensionsDex.PLAYLIST_MENU_PROVIDER;
+    static final List<String> LIST_MENU = List.of("Lp/y3w0;", "Lp/vz1;", "Ljava/util/List;", "Ljava/util/List;", "Lp/a94;");
 
     enum Change {
         NONE, NO_HOOKS, MISSING_HOOK, SECOND_HOOK, WRONG_CALLER, WRONG_REGISTER, BEFORE_SCHEDULING, PRIVATE_TARGET,
@@ -31,7 +33,10 @@ class VerifyExtensionsDexTest {
         CHIPS_BEFORE_ANOTHER_COPY, TAP_AFTER_ANOTHER_EVENT, TAP_BRANCHES_ON_ANOTHER_REGISTER, TAP_BEFORE_SOMETHING_ELSE,
         MISSING_SHUFFLE_HOOK, SHUFFLE_IN_ANOTHER_CLASS, SHUFFLE_IN_ANOTHER_METHOD, SHUFFLE_PASSES_ANOTHER_REGISTER,
         SHUFFLE_BEFORE_THE_STORE, SHUFFLE_AFTER_ANOTHER_FIELD, SHUFFLE_AFTER_ANOTHER_REGISTERS_STORE,
-        SHUFFLE_BEFORE_SOMETHING_ELSE, MISSING_SHUFFLE_TARGET, PRIVATE_SHUFFLE_TARGET
+        SHUFFLE_BEFORE_SOMETHING_ELSE, MISSING_SHUFFLE_TARGET, PRIVATE_SHUFFLE_TARGET,
+        MISSING_PROVIDERS_HOOK, PROVIDERS_IN_ANOTHER_CLASS, PROVIDERS_IN_ANOTHER_METHOD, PROVIDERS_PASS_ANOTHER_REGISTER,
+        PROVIDERS_RESULT_DROPPED, PROVIDERS_AFTER_THE_STORE, PROVIDERS_BEFORE_ANOTHER_STORE, PROVIDERS_STORED_ELSEWHERE,
+        MISSING_PROVIDERS_TARGET, PRIVATE_PROVIDERS_TARGET
     }
 
     @Test void acceptsEveryHook() throws Exception { check(Change.NONE, true); }
@@ -88,6 +93,16 @@ class VerifyExtensionsDexTest {
     @Test void rejectsAShuffleHookBeforeSomethingElse() { rejects(Change.SHUFFLE_BEFORE_SOMETHING_ELSE); }
     @Test void rejectsAMissingShuffleTarget() { rejects(Change.MISSING_SHUFFLE_TARGET); }
     @Test void rejectsAPrivateShuffleTarget() { rejects(Change.PRIVATE_SHUFFLE_TARGET); }
+    @Test void rejectsAMissingPlaylistMenuHook() { rejects(Change.MISSING_PROVIDERS_HOOK); }
+    @Test void rejectsAPlaylistMenuHookInAnotherClass() { rejects(Change.PROVIDERS_IN_ANOTHER_CLASS); }
+    @Test void rejectsAPlaylistMenuHookInAnotherMethod() { rejects(Change.PROVIDERS_IN_ANOTHER_METHOD); }
+    @Test void rejectsAPlaylistMenuHookThatPassesAnotherRegister() { rejects(Change.PROVIDERS_PASS_ANOTHER_REGISTER); }
+    @Test void rejectsAPlaylistMenuHookWhoseProvidersAreDropped() { rejects(Change.PROVIDERS_RESULT_DROPPED); }
+    @Test void rejectsAPlaylistMenuHookAfterTheProvidersAreStored() { rejects(Change.PROVIDERS_AFTER_THE_STORE); }
+    @Test void rejectsAPlaylistMenuHookBeforeAnotherStore() { rejects(Change.PROVIDERS_BEFORE_ANOTHER_STORE); }
+    @Test void rejectsAPlaylistMenuHookWhoseProvidersGoElsewhere() { rejects(Change.PROVIDERS_STORED_ELSEWHERE); }
+    @Test void rejectsAMissingPlaylistMenuProvider() { rejects(Change.MISSING_PROVIDERS_TARGET); }
+    @Test void rejectsAPrivatePlaylistMenuTarget() { rejects(Change.PRIVATE_PROVIDERS_TARGET); }
 
     void rejects(Change change) {
         assertThrows(AssertionError.class, () -> check(change, true));
@@ -129,6 +144,13 @@ class VerifyExtensionsDexTest {
         if (change != Change.MISSING_SHUFFLE_TARGET) {
             classes.add(definition(SHUFFLE, target(SHUFFLE, "onButton", List.of("Landroid/view/View;"), "V",
                 change == Change.PRIVATE_SHUFFLE_TARGET ? 0x0a : 0x09)));
+        }
+        boolean menuMoved = change == Change.PROVIDERS_IN_ANOTHER_CLASS;
+        classes.add(listMenu("Lp/sv70;", menuMoved ? Change.MISSING_PROVIDERS_HOOK : change));
+        if (menuMoved) classes.add(listMenu("Lp/othermenu;", Change.NONE));
+        if (change != Change.MISSING_PROVIDERS_TARGET) {
+            classes.add(definition(PROVIDER, target(PROVIDER, "providers", List.of("Ljava/util/List;"), "Ljava/util/List;",
+                change == Change.PRIVATE_PROVIDERS_TARGET ? 0x0a : 0x09)));
         }
         if (change == Change.SECOND_HOOK || change == Change.WRONG_CALLER) {
             classes.add(definition("Lp/other;", method("Lp/other;", "run", List.of(), "V", 0x09, 4,
@@ -292,6 +314,39 @@ class VerifyExtensionsDexTest {
         code.add(store);
         if (hooked && change != Change.SHUFFLE_BEFORE_THE_STORE) code.add(hook);
         if (change == Change.SHUFFLE_BEFORE_SOMETHING_ELSE) code.add(new ImmutableInstruction10x(Opcode.NOP));
+        code.add(new ImmutableInstruction10x(Opcode.RETURN_VOID));
+        return code;
+    }
+
+    /**
+     * The list menu, Lp/sv70;: its constructor (6 registers, so this is v0 and the item providers are v4) stores
+     * another list in field c, M1 replaces the providers in v4, and the constructor stores them in field d.
+     * PROVIDERS_IN_ANOTHER_METHOD moves that code, hook and all, into another method of the class with the same
+     * parameters, and PROVIDERS_IN_ANOTHER_CLASS gives the same code, still storing into Lp/sv70;'s fields, to
+     * another class.
+     */
+    ImmutableClassDef listMenu(String owner, Change change) {
+        boolean hooked = !unhooked(change) && change != Change.MISSING_PROVIDERS_HOOK;
+        boolean moved = change == Change.PROVIDERS_IN_ANOTHER_METHOD;
+        var methods = new ArrayList<ImmutableMethod>();
+        methods.add(method(owner, "<init>", LIST_MENU, "V", 0x10001, 6, providersStore(change, hooked && !moved)));
+        if (moved) methods.add(method(owner, "e", LIST_MENU, "V", 0x11, 6, providersStore(Change.NONE, true)));
+        return new ImmutableClassDef(owner, 1, "Ljava/lang/Object;", List.of(), null, Set.of(), List.of(), methods);
+    }
+
+    /** The stores of Lp/sv70;'s fields c and d, with M1 before the store of d when {@code hooked}, and the return. */
+    List<Instruction> providersStore(Change change, boolean hooked) {
+        var hook = List.of(
+            new ImmutableInstruction35c(Opcode.INVOKE_STATIC, 1, change == Change.PROVIDERS_PASS_ANOTHER_REGISTER ? 3 : 4,
+                0, 0, 0, 0, new ImmutableMethodReference(PROVIDER, "providers", List.of("Ljava/util/List;"), "Ljava/util/List;")),
+            new ImmutableInstruction11x(Opcode.MOVE_RESULT_OBJECT, change == Change.PROVIDERS_RESULT_DROPPED ? 5 : 4));
+        var store = new ImmutableInstruction22c(Opcode.IPUT_OBJECT, 4, change == Change.PROVIDERS_STORED_ELSEWHERE ? 1 : 0,
+            new ImmutableFieldReference("Lp/sv70;", change == Change.PROVIDERS_BEFORE_ANOTHER_STORE ? "c" : "d", "Ljava/util/List;"));
+        List<Instruction> code = new ArrayList<>();
+        code.add(new ImmutableInstruction22c(Opcode.IPUT_OBJECT, 3, 0, new ImmutableFieldReference("Lp/sv70;", "c", "Ljava/util/List;")));
+        if (hooked && change != Change.PROVIDERS_AFTER_THE_STORE) code.addAll(hook);
+        code.add(store);
+        if (hooked && change == Change.PROVIDERS_AFTER_THE_STORE) code.addAll(hook);
         code.add(new ImmutableInstruction10x(Opcode.RETURN_VOID));
         return code;
     }

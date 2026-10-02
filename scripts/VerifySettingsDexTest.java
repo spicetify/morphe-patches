@@ -307,6 +307,7 @@ class VerifySettingsDexTest {
         reject("missing menu item type", () -> VerifySettingsDex.classes.remove("Lp/jpj;"));
         reject("missing menu callbacks",
                 () -> VerifySettingsDex.classes.remove(VerifySettingsDex.EXTENSIONS + "ExtensionMenus;"));
+        reject("missing list menu interface", () -> VerifySettingsDex.classes.remove("Lp/spj;"));
         reject("missing home chip type", () -> VerifySettingsDex.classes.remove("Lp/ztx;"));
         reject("missing home chip callbacks",
                 () -> VerifySettingsDex.classes.remove(VerifySettingsDex.EXTENSIONS + "HomeChips;"));

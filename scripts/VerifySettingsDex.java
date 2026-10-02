@@ -44,10 +44,11 @@ class VerifySettingsDex {
     static final String PREFIX = "Lapp/spicetify/extension/spotify/settings/";
     static final String BRIDGE = PREFIX + "nativebridge/";
     static final String EXTENSIONS = "Lapp/spicetify/extension/spotify/extensions/";
-    // The extensions patch's context menu bridge and Home chip bridge, assembled into the same settings.dex.
+    // The extensions patch's context menu bridge, playlist menu provider and Home chip bridge, assembled
+    // into the same settings.dex.
     static final String MENU_BRIDGE = EXTENSIONS + "nativebridge/";
-    static final Set<String> MENU_TYPES =
-            Set.of(MENU_BRIDGE + "MenuBridge;", MENU_BRIDGE + "MenuAction;", MENU_BRIDGE + "HomeChipBridge;");
+    static final Set<String> MENU_TYPES = Set.of(MENU_BRIDGE + "MenuBridge;", MENU_BRIDGE + "MenuAction;",
+            MENU_BRIDGE + "PlaylistMenuProvider;", MENU_BRIDGE + "HomeChipBridge;");
 
     static byte[] canonical(ClassDef definition) {
         var pool = new DexPool(Opcodes.forApi(35));
@@ -154,7 +155,7 @@ class VerifySettingsDex {
         }
         System.out.println(
                 "Settings DEX verified: one startup hook, one native settings row hook,"
-                        + " capabilities, analytics, four bridge classes and three extensions bridge classes");
+                        + " capabilities, analytics, four bridge classes and four extensions bridge classes");
     }
 
     static void verify(boolean sharing, boolean theme) {
@@ -172,7 +173,7 @@ class VerifySettingsDex {
     // reference that the bundle shares, so each class is link-checked too.
     static void verifyMenuBridge() {
         require(expectedMenus.keySet().equals(MENU_TYPES),
-                "Canonical bundle must contain the three extensions bridge classes");
+                "Canonical bundle must contain the four extensions bridge classes");
         for (var type : MENU_TYPES) {
             var definition = classes.get(type);
             require(definition != null && Arrays.equals(expectedMenus.get(type), canonical(definition)),

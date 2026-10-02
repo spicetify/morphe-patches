@@ -17,6 +17,7 @@ import org.junit.jupiter.api.Test
 
 private const val ARRAY_LIST = "Ljava/util/ArrayList;"
 private const val BUTTON = "Landroidx/appcompat/widget/AppCompatImageButton;"
+private const val LIST = "Ljava/util/List;"
 
 class ExtensionsPatchTest {
     @Test
@@ -113,6 +114,24 @@ class ExtensionsPatchTest {
         assertFalse(isShuffleButtonEnd(listOf(field(Opcode.IGET_OBJECT, 2, 4, "Lp/xkp;", "i", BUTTON), returnVoid), 1))
         assertFalse(isShuffleButtonEnd(listOf(storeButton(2, 4), returnObject(2)), 1))
     }
+
+    @Test
+    fun `accepts the store of the list menu's item providers that M1 goes in before`() {
+        assertTrue(isItemProvidersStore(storeProviders(4, 0)))
+    }
+
+    @Test
+    fun `refuses any other instruction where M1 goes`() {
+        assertFalse(isItemProvidersStore(null))
+        assertFalse(isItemProvidersStore(storeProviders(3, 0)))
+        assertFalse(isItemProvidersStore(storeProviders(4, 1)))
+        assertFalse(isItemProvidersStore(field(Opcode.IPUT_OBJECT, 4, 0, "Lp/sv70;", "c", LIST)))
+        assertFalse(isItemProvidersStore(field(Opcode.IGET_OBJECT, 4, 0, "Lp/sv70;", "d", LIST)))
+        assertFalse(isItemProvidersStore(returnVoid))
+    }
+
+    /** `iput-object v[value], v[instance], Lp/sv70;->d`, the list menu's constructor storing its item providers. */
+    private fun storeProviders(value: Int, instance: Int) = field(Opcode.IPUT_OBJECT, value, instance, "Lp/sv70;", "d", LIST)
 
     /** `iput-object v[value], v[instance], Lp/xkp;->i`, the shuffle button's constructor storing its button. */
     private fun storeButton(value: Int, instance: Int) = field(Opcode.IPUT_OBJECT, value, instance, "Lp/xkp;", "i", BUTTON)

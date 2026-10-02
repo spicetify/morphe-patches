@@ -7,21 +7,24 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * The Java side of the track and artist menu hooks. The patch's {@code MenuBridge} smali asks which
- * items to add and builds Spotify's own menu items from them, and its {@code MenuAction} calls back
- * here on a tap. Only plain strings cross: each item is {id, title}, and the bridge gives it the trash
- * icon.
+ * The Java side of the track, artist and playlist menu hooks. The patch's {@code MenuBridge} and
+ * {@code PlaylistMenuProvider} smali ask which items to add and build Spotify's own menu items from
+ * them, and its {@code MenuAction} calls back here on a tap. Only plain strings cross: each item is
+ * {id, title}, and the bridge gives a track or artist item the trash icon and a playlist item the
+ * shuffle icon.
  * <p>
- * The menus pass Spotify's protobuf {@code CollectionTrack} or {@code CollectionArtist}. R8 renamed
- * their metadata getters, so the URI comes from the metadata field, whose name protobuf-lite needs
- * at runtime, and then the metadata's kept {@code getLink()}.
+ * The track and artist menus pass Spotify's protobuf {@code CollectionTrack} or
+ * {@code CollectionArtist}. R8 renamed their metadata getters, so the URI comes from the metadata
+ * field, whose name protobuf-lite needs at runtime, and then the metadata's kept {@code getLink()}.
+ * The playlist menu passes the list's URI.
  * <p>
- * The items are built on an Rx thread, and building one only reads the switch and the trash sets.
- * Taps come on the main thread. Nothing here throws.
+ * The track and artist items are built on an Rx thread. Building any item only reads the switches
+ * and the trash sets, so any thread will do. Taps come on the main thread. Nothing here throws.
  */
 public final class ExtensionMenus {
     private static final String TRASH_SONG = "trash_song";
     private static final String TRASH_ARTIST = "trash_artist";
+    private static final String SHUFFLE_PLAYLIST = "shuffle_playlist";
     private static final String TRACK_METADATA = "trackMetadata_";
     private static final String ARTIST_METADATA = "artistMetadata_";
 
@@ -84,6 +87,36 @@ public final class ExtensionMenus {
             if (uri != null) TrashBin.setArtist(context, uri, !TrashBin.isArtistTrashed(uri));
         } catch (Throwable e) {
             Log.w("Spicetify", "Artist menu item " + id + " failed", e);
+        }
+    }
+
+    /**
+     * The item hook M1 adds to the menu of the list {@code uri}: Shuffle+ for a playlist or Liked
+     * Songs while Shuffle+ is on, else null. What's playing doesn't matter.
+     */
+    public static String[] playlistItem(String uri) {
+        try {
+            Context context = Extensions.appContext();
+            if (context == null || uri == null || !Extensions.isOn(context, Extensions.SHUFFLE_PLUS)) return null;
+            if (!uri.startsWith("spotify:playlist:") && !Esperanto.isLikedSongs(uri)) return null;
+            return new String[] {SHUFFLE_PLAYLIST, "Shuffle+ this playlist"};
+        } catch (Throwable e) {
+            Log.w("Spicetify", "Couldn't make the playlist menu item", e);
+            return null;
+        }
+    }
+
+    /**
+     * A tap on playlist menu item {@code id}: {@code shuffle_playlist} has Shuffle+ play the list
+     * {@code uri}, even with nothing playing, and any other id does nothing.
+     */
+    public static void onPlaylistItem(String id, Object uri) {
+        try {
+            Context context = Extensions.appContext();
+            if (context == null || !SHUFFLE_PLAYLIST.equals(id) || !(uri instanceof String)) return;
+            ShufflePlus.shuffle(context, (String) uri);
+        } catch (Throwable e) {
+            Log.w("Spicetify", "Playlist menu item " + id + " failed", e);
         }
     }
 
