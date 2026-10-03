@@ -83,20 +83,30 @@ Use your installed build-tools version in those paths. Run with Java 21 on
 `PATH`, or supply `--java "$JAVA_HOME/bin/java"`. Omit `--sharing` when that
 patch is disabled. Omit `--theme` when that patch is disabled. Theme colors
 are chosen at runtime, so the checker requires every color resource to match
-the stock APK. It also checks that each pinned Encore palette class remaps
-every stock theme constant it loads. It verifies color values and IDs, equivalent relocated XML
+the stock APK. With `--theme`, it also checks that the `SpicetifyTheme`
+overlayable declares exactly the colors in the theme's role map, that
+Spotify's default Encore palette, its raw colors, two #282828 surfaces, the
+header scrim's alphas, and Encore's icon tint pass through the theme's Compose
+hooks, and that the extension holds the role and Compose tables; without it, none of these may be present. It verifies color values and IDs, equivalent relocated XML
 selectors, the local builder hook, both final URL hooks, the preference-aware
-wrapper, the private settings Activity, unchanged permissions, and the APK
-signature. It also compares all four installed settings bridge classes with
-the exact bundle used for patching, including their code and class metadata.
+wrapper, the settings dialog host, no added manifest components apart from
+server files, unchanged permissions, and the APK signature. It also compares
+all four installed settings bridge classes with the exact bundle used for
+patching, including their code and class metadata.
 This catches missing or replaced menu code that still has valid references.
 Verify the bundle's release checksum and provenance separately; matching an
 untrusted bundle does not establish that its code is correct.
 It does not execute Spotify or cover every resource configuration.
+`python3 scripts/test-verify-artifact.py` checks its color and overlayable
+rules without an APK.
 
 For builds with optional features, add `--home-pins` and/or
 `--server-files` to match the selected patches. The checker validates their
-capability flags and the server provider's private manifest declaration.
+capability flags and the private manifest declarations of the server provider
+and browser. Other patches must not add manifest components: a root mount
+install keeps Spotify's stock manifest and never registers them, so server
+files are unavailable there. `python3 scripts/test-verify-artifact.py` checks
+this rule without an APK.
 Add `--hide-premium-tab` for the navigation patch. Its checker verifies the
 original flag consumer, argument and result register, following conditional
 branch, installed capability, and compiled helper logic that preserves the
@@ -104,6 +114,8 @@ original flag while negating the hide preference. Synthetic DEX tests reject
 misplaced or missing hooks, mismatched capabilities, and altered helper logic.
 The four-argument Java settings checker remains available for `dev.3` APKs;
 the Python checker expects capability methods for the selected features.
+APKs whose settings are an Activity, v1.0.1 and earlier, need the scripts
+from their release tag.
 
 Add `--hide-brand-ads` for **Hide Home and Browse ads**. Its checker verifies
 all three list consumers, getter placement, registers, and the native iterator
@@ -126,9 +138,9 @@ This command creates temporary APK copies with changed settings code, a
 missing sharing fingerprint, a changed server response field, or a renamed
 theme resource. Each case must report the expected patch failure, exit
 with status 1, and produce no output APK. Temporary copies are deleted
-afterward. The sharing-marker mutation is caught by the share URL fingerprint,
-which then matches nothing. These controlled changes test refusal paths, not
-compatibility with another Spotify release.
+afterward. The strict settings snapshot also detects the sharing-marker
+mutation because an inspected obfuscated class contains that literal. These
+controlled changes test refusal paths, not compatibility with another Spotify release.
 The command never installs an app. Use Java 21 on `PATH` or pass `--java`.
 
 For a combined settings build, also exercise the settings verifier's mutation
@@ -139,8 +151,8 @@ cases against your private APK:
 ```
 
 Use an APK built from the current checkout's bridge. These tests remove or
-miswire startup, menu, capability, analytics, Activity, and bridge instructions
-in memory, including empty menu and navigation implementations. The stock
+miswire startup, menu, capability, analytics, settings screen, and bridge
+instructions in memory, including empty menu and navigation implementations. The stock
 and patched APKs stay unchanged. CI cannot
 run these cases without a privately supplied Spotify fixture.
 

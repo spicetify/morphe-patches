@@ -47,6 +47,9 @@ jobs:
       - name: Test device check safeguards
         run: python3 scripts/test-device-check.py
 
+      - name: Test artifact checker manifest rule
+        run: python3 scripts/test-verify-artifact.py
+
       - name: Remove bundles built before version selection
         run: rm -f patches/build/libs/patches-*.mpp
 
