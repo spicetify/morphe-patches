@@ -11,7 +11,7 @@ This repository publishes patch source and bundles, not Spotify APKs.
 [**➕ Add Spicetify to Morphe**](https://morphe.software/add-source?github=spicetify/morphe-patches/tree/main)
 
 Open this link on Android with Morphe Manager installed to add the stable
-source. Pre-releases are published from the `dev` branch.
+source. Releases are published from `main`.
 
 ## Patches
 
@@ -83,7 +83,7 @@ instead of adding it again. To add it manually and patch Spotify:
    https://raw.githubusercontent.com/spicetify/morphe-patches/refs/heads/main/patches-bundle.json
    ```
 
-   For pre-releases, use the same URL with `dev` in place of `main`.
+   If your source uses the former `dev` URL, switch to this `main` URL.
 
 3. Expand **Spicetify Android patches** and enable **Experimental app versions**.
 4. Return to the app list. Spotify appears with the target version

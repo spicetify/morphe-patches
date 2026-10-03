@@ -171,9 +171,9 @@ and seek a track, interrupt a scan, and confirm recovery after restarting.
 Confirm login, playback, queue, Connect, background playback, and
 notifications still work. Check that unsupported inputs and invalid options
 fail clearly without producing an APK. Test source updates, same-key
-reinstall, cancellation, and recovery to stock Spotify. Confirm a push starts
-CI and prerelease automation for the expected commit. Record the exact device,
-build, and results in the pull request before enabling a stable release.
+reinstall, cancellation, and recovery to stock Spotify. Confirm CI runs for
+the pull request's expected commit, and record the exact device, build, and
+results before merging. Confirm the merge starts release automation on `main`.
 
 When importing code, record its source revision, license, retained notices,
 and local changes in [third-party sources](THIRD_PARTY_NOTICES.md).
@@ -227,21 +227,15 @@ verification, a normal Manager installation pass, or listening to playback.
 
 ## Release
 
-The repository retains the official template's semantic-release workflow.
-Work targets `dev`; `feat:` and `fix:` commits produce prereleases there.
-The README's explicit `refs/heads/dev` source URL always follows prereleases;
-enable **Experimental app versions** separately to show the initial Spotify
-target. Sources configured through a regular repository URL also need their
-prerelease setting enabled once a stable feed exists. Merge `dev` into `main`
-without squashing only when the stable verification pass is complete.
-
-Stable release automation is disabled unless the repository variable
-`STABLE_RELEASE_ENABLED` is `true`. Enable it only after recording the
-required runtime evidence. Tests run before release preparation.
+Develop on feature branches and open pull requests targeting `main`.
+The semantic-release workflow publishes stable GitHub releases when `feat:`
+or `fix:` commits land on `main`. Complete the runtime verification above
+before merging changes to Spotify patches. Tests run before release
+preparation.
 
 Check that the push starts a workflow for the expected commit. If no run
 appears, investigate the trigger and use **Actions > Release > Run workflow**
-with branch **dev** for an explicit experimental build. A manual run proves
+with branch **main** for a stable release. A manual run proves
 the build and release jobs, not the automatic push trigger.
 
 Let automation generate `patches-list.json`, `patches-bundle.json`, and the
