@@ -2,6 +2,8 @@ package app.spicetify.extension.spotify.theme;
 
 /** Color math on packed ARGB ints. */
 final class ArgbColors {
+    private static final String HEX = "0123456789abcdefABCDEF";
+
     private ArgbColors() {}
 
     /** Channel-wise sRGB mix: 0 keeps {@code from}, 1 gives {@code to}. Keeps {@code from}'s alpha. */
@@ -39,5 +41,28 @@ final class ArgbColors {
         double a = luminance(first);
         double b = luminance(second);
         return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+    }
+
+    /** 3, 6 or 8 hex digits without '#'. Eight digits are AARRGGBB, or CSS's RRGGBBAA when cssOrder. */
+    static Integer parseHex(String digits, boolean cssOrder) {
+        if (digits.isEmpty()) return null;
+        for (int i = 0; i < digits.length(); i++) if (HEX.indexOf(digits.charAt(i)) < 0) return null;
+        String argb;
+        switch (digits.length()) {
+            case 3:
+                StringBuilder doubled = new StringBuilder("FF");
+                for (char c : digits.toCharArray()) doubled.append(c).append(c);
+                argb = doubled.toString();
+                break;
+            case 6:
+                argb = "FF" + digits;
+                break;
+            case 8:
+                argb = cssOrder ? digits.substring(6) + digits.substring(0, 6) : digits;
+                break;
+            default:
+                return null;
+        }
+        return (int) Long.parseLong(argb, 16);
     }
 }

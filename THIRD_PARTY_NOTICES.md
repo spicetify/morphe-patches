@@ -53,6 +53,21 @@ in place, and loading through activity lifecycle callbacks instead of
 Morphe's base-context hook. On October 2, 2026: each update closes the
 provider it replaces.
 
+## Spicetify color schemes
+
+`SpicetifyTheme.java` reads a pasted `color.ini` the way desktop Spicetify
+does. It reimplements the color rules of `ParseColor` in
+[`src/utils/color.go`](https://github.com/spicetify/cli/blob/2b32e6a5cabe64c577c5f153eca91e931c33455f/src/utils/color.go)
+from spicetify/cli at `2b32e6a5cabe64c577c5f153eca91e931c33455f`
+(LGPL-2.1), and the section, key and comment rules of
+[go-ini](https://github.com/go-ini/ini/tree/v1.67.0) v1.67.0 (Apache-2.0),
+which the CLI reads the file with. No code is copied. Local changes: a value
+that starts with `#` is a `#RGB`, `#RRGGBB` or `#AARRGGBB` color instead of
+a comment, spaces around decimal channels are ignored, and values the CLI
+would complete with defaults, clamp, or read from the desktop
+(`${xrdb:...}` and environment variables) are skipped, as are lines it
+would reject.
+
 ## APK reverse engineering skill
 
 `.agents/skills/apk-reverse` contains the skill directory from

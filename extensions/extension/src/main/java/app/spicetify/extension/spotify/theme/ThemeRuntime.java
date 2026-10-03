@@ -84,6 +84,8 @@ public final class ThemeRuntime {
 
     /** A selection's role colors; none for Spotify's own colors. */
     public static Map<String, Integer> roleColors(Context context, ThemeState.Selection selection) {
+        // A scheme was resolved when it was pasted.
+        if (ThemeState.SCHEME.equals(selection.kind)) return selection.colors;
         return ThemeState.CUSTOM.equals(selection.kind)
                 ? ThemeResolver.resolve(selection.colors, "button").colors
                 : ThemePresets.colors(context, selection.kind);

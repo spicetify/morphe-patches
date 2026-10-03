@@ -32,7 +32,7 @@ Pixel 8 with a 35,000-track Jellyfin library.
 | Patch | Default | Behavior |
 | --- | --- | --- |
 | Clean sharing links | Enabled | Removes `si`, `pi`, and known `utm_*` parameters from `open.spotify.com` links. Preserves timestamps, context, other parameters, and fragments. |
-| Theme colors | Disabled | Choose a theme such as OLED, Midnight, or Nord in Spicetify settings, or pick background, surface, and accent colors yourself, then restart Spotify when it offers. Requires Android 11 or later. Hardcoded colors and some screens keep Spotify's colors. |
+| Theme colors | Disabled | Choose a theme such as OLED, Midnight, or Nord in Spicetify settings, paste a desktop Spicetify theme's `color.ini`, or pick background, surface, and accent colors yourself, then restart Spotify when it offers. Requires Android 11 or later. Hardcoded colors and some screens keep Spotify's colors. |
 | Pin shortcuts on Home | Disabled | Moves selected native Home shortcuts first. Configure pins in Spotify's Spicetify settings, then restart Spotify. |
 | Local files from a server | Disabled | Streams an HTTPS WebDAV folder or Jellyfin library into Local Files and Your Library, with its own filter chip. Requires Android 8 or later, byte-range support, and Spotify's Local audio files setting; configure the server in Spotify's Spicetify settings. Not available for root mount installs, because its track provider and server browser must be in the manifest. |
 
@@ -119,7 +119,9 @@ Patched Spotify has a **Spicetify** row in its settings.
 Only installed patches appear here, grouped by category. With **Theme colors**
 installed, **Appearance** lists themes, including OLED and, on Android 12 or
 later, Material You, and a **Custom** option for picking background, surface,
-and accent colors. Settings that Spotify
+and accent colors. **Paste a Spicetify theme** takes a desktop theme's
+`color.ini`, or CSS with `--spice-*` colors, and lets you choose its color
+scheme and an accent key such as Catppuccin's `mauve`. Settings that Spotify
 reads at startup, such as themes, offer to restart Spotify for you. Home pins and server files have their own
 controls here when installed.
 

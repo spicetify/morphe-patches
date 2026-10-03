@@ -15,6 +15,8 @@ import org.json.JSONObject;
 public final class ThemeState {
     /** Colors picked in settings: a background, surface and accent saved as the main, card and button roles. */
     public static final String CUSTOM = "custom";
+    /** A Spicetify color scheme pasted in settings, saved as the role colors it resolved to. */
+    public static final String SCHEME = "scheme";
     private static final String FILE = "spicetify_theme";
     /** Where the 1.0 releases saved the theme: a named theme's key, and the colors picked for it. */
     private static final String PREVIOUS_FILE = "spicetify_patch_settings";
@@ -23,10 +25,10 @@ public final class ThemeState {
     private static final String PREVIOUS_TABLES = "spicetify-theme";
 
     public static final class Selection {
-        /** One of the {@link ThemePresets} kinds, or {@link #CUSTOM}. */
+        /** One of the {@link ThemePresets} kinds, {@link #CUSTOM} or {@link #SCHEME}. */
         public final String kind;
         public final String label;
-        /** Role colors of custom colors; empty for presets, which are computed when applied. */
+        /** Role colors of custom colors or a scheme; empty for presets, which are computed when applied. */
         public final Map<String, Integer> colors;
 
         public Selection(String kind, String label, Map<String, Integer> colors) {

@@ -2,9 +2,12 @@ package app.spicetify.extension.spotify.theme;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import org.junit.Test;
 
@@ -69,5 +72,18 @@ public class ThemeResolverTest {
         assertFalse(theme.colors.containsKey("text"));
         assertFalse(theme.colors.containsKey("button"));
         assertFalse(theme.colors.containsKey("sidebar"));
+    }
+
+    @Test
+    public void warnsAboutUnreadableTextAndLightBackgrounds() {
+        List<String> warnings = ThemeResolver.warnings(ThemeResolver.resolve(
+                scheme("main", 0xFFF5F7FA, "text", 0xFFFFFFFF, "misc", 0xFF000000), "button").colors);
+        assertTrue(warnings.get(0).startsWith("Text on the background has a contrast of"));
+        assertTrue(warnings.contains("The background is light. Spotify draws some text in white, which will be hard to read."));
+        assertEquals(3, warnings.size());
+        assertTrue(ThemeResolver.warnings(ThemeResolver.resolve(scheme("main", 0xFF000000), "button").colors).isEmpty());
+        // Secondary text the theme leaves alone is Spotify's #B3B3B3, which white text would hide.
+        assertEquals(Collections.singletonList("Secondary text on the background has a contrast of 2.4:1, below 3:1."),
+                ThemeResolver.warnings(ThemeResolver.resolve(scheme("main", 0xFF6E6E6E), "button").colors));
     }
 }

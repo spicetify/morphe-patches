@@ -139,6 +139,11 @@ public class ThemeRuntimeTest {
         assertEquals(Integer.valueOf(0xFF0B1026), custom.get("main"));
         assertEquals(Integer.valueOf(ArgbColors.mix(0xFFFF6437, 0xFF000000, 0.125)), custom.get("button-active"));
         assertFalse(custom.containsKey("card"));
+        // A pasted scheme was resolved when it was pasted, so its saved roles apply as they are.
+        Map<String, Integer> pasted = new LinkedHashMap<>(picked);
+        pasted.put("button-active", 0xFF123456);
+        assertEquals(pasted, ThemeRuntime.roleColors(context,
+                new ThemeState.Selection(ThemeState.SCHEME, "Pasted theme (mocha)", pasted)));
     }
 
     @Test

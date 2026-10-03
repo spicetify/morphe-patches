@@ -1,9 +1,11 @@
 package app.spicetify.extension.spotify.theme;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 /** Turns a Spicetify color scheme into Spotify color roles. Roles it leaves out keep Spotify's colors. */
@@ -14,6 +16,8 @@ public final class ThemeResolver {
             "notification", "notification-error", "shadow"));
     private static final int BLACK = 0xFF000000;
     private static final int WHITE = 0xFFFFFFFF;
+    private static final int STOCK_MAIN = 0xFF121212;
+    private static final int STOCK_SUBTEXT = 0xFFB3B3B3;
 
     public static final class Result {
         public final Map<String, Integer> colors;
@@ -56,5 +60,25 @@ public final class ThemeResolver {
             roles.put("on-button", ArgbColors.contrast(button, BLACK) >= ArgbColors.contrast(button, WHITE) ? BLACK : WHITE);
         }
         return new Result(roles);
+    }
+
+    /** Readability warnings for role colors, checked against Spotify's stock colors for roles they leave alone. */
+    public static List<String> warnings(Map<String, Integer> roles) {
+        int main = roles.getOrDefault("main", STOCK_MAIN);
+        int text = roles.getOrDefault("text", WHITE);
+        int subtext = roles.getOrDefault("subtext", STOCK_SUBTEXT);
+        List<String> warnings = new ArrayList<>();
+        double textContrast = ArgbColors.contrast(text, main);
+        if (textContrast < 4.5) {
+            warnings.add(String.format(Locale.ROOT, "Text on the background has a contrast of %.1f:1, below 4.5:1.", textContrast));
+        }
+        double subtextContrast = ArgbColors.contrast(subtext, main);
+        if (subtextContrast < 3.0) {
+            warnings.add(String.format(Locale.ROOT, "Secondary text on the background has a contrast of %.1f:1, below 3:1.", subtextContrast));
+        }
+        if (ArgbColors.luminance(main) > 0.4) {
+            warnings.add("The background is light. Spotify draws some text in white, which will be hard to read.");
+        }
+        return warnings;
     }
 }

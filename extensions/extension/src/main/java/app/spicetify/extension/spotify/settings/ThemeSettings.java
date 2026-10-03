@@ -1,23 +1,40 @@
 package app.spicetify.extension.spotify.settings;
 
 import android.content.Context;
+import android.graphics.Color;
 import android.os.Build;
 import android.text.Editable;
 import android.text.InputType;
+import android.text.TextUtils;
 import android.text.TextWatcher;
 import android.view.Gravity;
 import android.view.View;
+import android.view.WindowInsets;
+import android.view.WindowManager;
 import android.widget.EditText;
+import android.widget.HorizontalScrollView;
 import android.widget.LinearLayout;
+import android.widget.RadioButton;
+import android.widget.RadioGroup;
+import android.widget.ScrollView;
 import android.widget.TextView;
+import app.spicetify.extension.spotify.theme.SpicetifyTheme;
+import app.spicetify.extension.spotify.theme.ThemeException;
 import app.spicetify.extension.spotify.theme.ThemePresets;
+import app.spicetify.extension.spotify.theme.ThemeResolver;
 import app.spicetify.extension.spotify.theme.ThemeRuntime;
 import app.spicetify.extension.spotify.theme.ThemeState;
+import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.regex.Pattern;
 
-/** The Appearance page: a list of themes, with individually picked colors as the custom option. */
+/**
+ * The Appearance page: a list of themes, a theme pasted from desktop Spicetify, and individually picked
+ * colors as the custom option.
+ */
 final class ThemeSettings {
     private static final Pattern HEX = Pattern.compile("#?([0-9a-fA-F]{6}|[0-9a-fA-F]{8})");
     static final int[] BACKGROUNDS = {0xFF000000, 0xFF121212, 0xFF0B1026, 0xFF1E1E2E, 0xFF282A36, 0xFF2E3440};
@@ -46,6 +63,14 @@ final class ThemeSettings {
                 if (!selected) save(activity, content, preset.name, theme);
             });
         }
+        if (ThemeState.SCHEME.equals(current.kind)) {
+            // A pasted theme is listed while it's in use; choosing another theme replaces it.
+            SpotifyStyle.themeRow(content, current.label, null, colors(activity, current), true, view -> {});
+            List<String> warnings = ThemeResolver.warnings(current.colors);
+            if (!warnings.isEmpty()) content.addView(intro(activity, TextUtils.join(" ", warnings)));
+        }
+        SpotifyStyle.actionRow(content, "Paste a Spicetify theme", "Use a color.ini, or CSS with --spice-* colors",
+                view -> paste(activity, content));
         boolean custom = ThemeState.CUSTOM.equals(current.kind);
         // Custom starts from the colors of the theme in use.
         int[] colors = colors(activity, current);
@@ -162,6 +187,149 @@ final class ThemeSettings {
                 })
                 .secondary("Cancel")
                 .show();
+    }
+
+    /**
+     * Pastes a desktop Spicetify theme: a color.ini, whose schemes are offered when there's more than
+     * one, or CSS with --spice-* colors. An accent key, such as Catppuccin's mauve, replaces the button color.
+     */
+    private static void paste(SpicetifySettingsScreen activity, LinearLayout content) {
+        LinearLayout body = SpotifyStyle.column(activity);
+        EditText text = new EditText(activity);
+        text.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_MULTI_LINE | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
+        text.setHint("Paste a color.ini, or CSS with --spice-* colors");
+        SpotifyStyle.style(text);
+        text.setTypeface(SpotifyStyle.font(activity, SpotifyStyle.Font.REGULAR));
+        text.setGravity(Gravity.TOP | Gravity.START);
+        int padding = SpotifyStyle.dp(activity, 12);
+        text.setPadding(padding, padding, padding, padding);
+        // A long file scrolls inside the field, and many schemes sideways, so the accent field stays close.
+        text.setMinLines(4);
+        text.setMaxLines(6);
+        body.addView(text);
+
+        LinearLayout picker = SpotifyStyle.column(activity);
+        picker.setVisibility(View.GONE);
+        label(picker, "Color scheme");
+        RadioGroup schemes = new RadioGroup(activity);
+        schemes.setOrientation(LinearLayout.HORIZONTAL);
+        HorizontalScrollView row = new HorizontalScrollView(activity);
+        row.addView(schemes);
+        picker.addView(row);
+        body.addView(picker);
+
+        EditText accent = new EditText(activity);
+        accent.setId(View.generateViewId());
+        label(body, "Accent key (optional)").setLabelFor(accent.getId());
+        accent.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
+        accent.setSingleLine(true);
+        accent.setHint("For example mauve");
+        SpotifyStyle.style(accent);
+        accent.setTypeface(SpotifyStyle.font(activity, SpotifyStyle.Font.REGULAR));
+        body.addView(accent);
+
+        text.addTextChangedListener(new TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence value, int start, int count, int after) {}
+            @Override public void onTextChanged(CharSequence value, int start, int before, int count) {
+                text.setError(null);
+                listSchemes(value.toString(), picker, schemes);
+            }
+            @Override public void afterTextChanged(Editable value) {}
+        });
+
+        // Like the sheet's choices list, the fields scroll. They take the height the title and buttons
+        // leave, so Apply stays on the sheet on a short screen or at a large font size.
+        ScrollView fields = new ScrollView(activity);
+        fields.addView(body);
+        SpotifySheet sheet = new SpotifySheet(activity, "Paste a Spicetify theme", null)
+                .view(fields)
+                .primary("Apply", () -> applyPasted(activity, content, text, schemes, accent))
+                .secondary("Cancel");
+        LinearLayout.LayoutParams params = (LinearLayout.LayoutParams) fields.getLayoutParams();
+        params.height = 0;
+        params.weight = 1;
+        sheet.create();
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            // The sheet sits above the keyboard rather than under it, so Apply stays reachable while typing.
+            WindowManager.LayoutParams attributes = sheet.getWindow().getAttributes();
+            attributes.setFitInsetsTypes(WindowInsets.Type.ime() | WindowInsets.Type.statusBars());
+            sheet.getWindow().setAttributes(attributes);
+        }
+        sheet.show();
+    }
+
+    /** Lists a pasted file's schemes when it has more than one, keeping the one chosen. */
+    private static void listSchemes(String text, View picker, RadioGroup schemes) {
+        String chosen = chosen(schemes);
+        schemes.removeAllViews();
+        List<SpicetifyTheme.Scheme> parsed;
+        try {
+            parsed = SpicetifyTheme.parse(text);
+        } catch (ThemeException invalid) {
+            parsed = Collections.emptyList();
+        }
+        picker.setVisibility(parsed.size() > 1 ? View.VISIBLE : View.GONE);
+        if (parsed.size() < 2) return;
+        RadioButton checked = null;
+        for (SpicetifyTheme.Scheme scheme : parsed) {
+            RadioButton radio = new RadioButton(schemes.getContext());
+            radio.setId(View.generateViewId());
+            radio.setText(scheme.name);
+            SpotifyStyle.style(radio);
+            schemes.addView(radio);
+            // Desktop Spicetify takes the first scheme unless one is chosen.
+            if (checked == null || scheme.name.equals(chosen)) checked = radio;
+        }
+        schemes.check(checked.getId());
+    }
+
+    /** The scheme chosen in the list, or null when there's no list. */
+    private static String chosen(RadioGroup schemes) {
+        RadioButton checked = schemes.findViewById(schemes.getCheckedRadioButtonId());
+        return checked == null ? null : checked.getText().toString();
+    }
+
+    /** Applies the chosen scheme of the pasted file. A problem shows on its field and keeps the sheet open. */
+    private static boolean applyPasted(SpicetifySettingsScreen activity, LinearLayout content, EditText text,
+            RadioGroup schemes, EditText accent) {
+        text.setError(null);
+        accent.setError(null);
+        List<SpicetifyTheme.Scheme> parsed;
+        try {
+            parsed = SpicetifyTheme.parse(text.getText().toString());
+        } catch (ThemeException invalid) {
+            return problem(text, invalid.getMessage());
+        }
+        SpicetifyTheme.Scheme scheme = parsed.get(0);
+        String chosen = chosen(schemes);
+        for (SpicetifyTheme.Scheme each : parsed) if (each.name.equals(chosen)) scheme = each;
+        String key = accent.getText().toString().trim().toLowerCase(Locale.ROOT);
+        Map<String, Integer> colors;
+        try {
+            colors = ThemeResolver.resolve(scheme.colors, key.isEmpty() ? "button" : key).colors;
+        } catch (ThemeException missing) {
+            return problem(accent, missing.getMessage());
+        }
+        String name = "Pasted theme (" + scheme.name + ")";
+        if (colors.isEmpty()) return problem(text, name + " has no colors Spotify can use.");
+        save(activity, content, "the pasted theme", new ThemeState.Selection(ThemeState.SCHEME, name, colors));
+        return true;
+    }
+
+    /** Shows a problem on its field, focused, since Android shows the message only then. Keeps the sheet open. */
+    private static boolean problem(EditText field, String message) {
+        field.requestFocus();
+        field.setError(message);
+        return false;
+    }
+
+    /** A field label, as on the server files page. */
+    private static TextView label(LinearLayout parent, String name) {
+        Context context = parent.getContext();
+        TextView label = SpotifyStyle.text(context, name, 14, Color.WHITE, SpotifyStyle.Font.BOLD);
+        label.setPadding(0, SpotifyStyle.dp(context, 16), 0, SpotifyStyle.dp(context, 8));
+        parent.addView(label);
+        return label;
     }
 
     /**
