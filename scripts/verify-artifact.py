@@ -9,12 +9,44 @@ import subprocess
 import zipfile
 from pathlib import Path
 
+ROLE_MAP = Path(__file__).resolve().parent.parent / "patches/src/main/resources/theme/9.1.80.2221.properties"
+
+
+def role_map_colors(path=ROLE_MAP):
+    """The color resources the theme's roles map, in role order."""
+    names = []
+    for line in path.read_text().splitlines():
+        key, _, value = line.partition("=")
+        if value and not key.startswith(("#", "compose.", "primitive.")):
+            names += [name.strip() for name in value.split(",") if name.strip()]
+    return names
+
+
+def verify_overlayable(aapt2, apk, theme):
+    """With Theme colors, the SpicetifyTheme overlayable declares exactly the role map's colors; otherwise it's absent."""
+    output = subprocess.check_output([aapt2, "dump", "overlayable", str(apk)], text=True)
+    block = next((block for block in re.split(r'^name="', output, flags=re.MULTILINE)
+                  if block.startswith('SpicetifyTheme"')), None)
+    if not theme:
+        if block is not None:
+            raise AssertionError("SpicetifyTheme overlayable without Theme colors")
+        return 0
+    if block is None or 'policies="public"' not in block:
+        raise AssertionError("Missing the public SpicetifyTheme overlayable")
+    declared = re.findall(r"^\s+color/(\S+)$", block, re.MULTILINE)
+    expected = role_map_colors()
+    if sorted(declared) != sorted(expected):
+        raise AssertionError(f"SpicetifyTheme overlayable differs from the role map: missing "
+                             f"{sorted(set(expected) - set(declared))}, extra {sorted(set(declared) - set(expected))}")
+    return len(declared)
+
 
 def colors(aapt2, apk):
     output = subprocess.check_output([aapt2, "dump", "resources", str(apk)], text=True)
     values = {}
     for match in re.finditer(
-        r"^    resource (0x[0-9a-f]+) color/(\S+)\n(.*?)(?=^    resource |\Z)",
+        # A resource aapt2 also lists as overlayable carries a trailing " OVERLAYABLE" tag.
+        r"^    resource (0x[0-9a-f]+) color/(\S+)[^\n]*\n(.*?)(?=^    resource |\Z)",
         output, re.MULTILINE | re.DOTALL,
     ):
         default = re.search(r"^      \(\) (.+)$", match[3], re.MULTILINE)
@@ -140,6 +172,7 @@ def main():
                 raise AssertionError(f"Color {name}: expected {wanted}, got {actual}")
     if missing := expected.keys() - before.keys():
         raise AssertionError(f"Stock fixture lacks colors: {sorted(missing)}")
+    overlayable = verify_overlayable(args.aapt2, args.patched, args.theme)
     subprocess.run([
         args.java, "-Xmx2g", "-cp", str(args.desktop),
         str(Path(__file__).with_name("VerifySharingDex.java")),
@@ -164,7 +197,6 @@ def main():
         args.java, "-Xmx2g", "-cp", str(args.desktop),
         str(Path(__file__).with_name("VerifyThemeDex.java")),
         str(args.patched), "1" if args.theme else "0",
-        str(Path(__file__).resolve().parent.parent / "patches/src/main/resources/theme/palette-9.1.80.2221.properties"),
     ], check=True)
     subprocess.run([
         args.java, "-Xmx2g", "-cp", str(args.desktop),
@@ -181,7 +213,7 @@ def main():
     print(json.dumps({
         "stockSha256": digest(args.stock), "patchedSha256": digest(args.patched),
         "bundleSha256": digest(args.bundle),
-        "defaultColorsChecked": len(before), "theme": args.theme,
+        "defaultColorsChecked": len(before), "theme": args.theme, "themeOverlayable": overlayable,
         "sharing": args.sharing, "signatureVerified": True,
         "homePins": args.home_pins, "serverFiles": args.server_files,
         "hidePremiumTab": args.hide_premium_tab, "hideBrandAds": args.hide_brand_ads,

@@ -52,5 +52,34 @@ class ManifestRuleTest(unittest.TestCase):
             self.check(BROWSER + PROVIDER + component("activity", "app.spicetify.Added"), server_files=True)
 
 
+class ThemeRuleTest(unittest.TestCase):
+    def dump(self, output, check, *arguments):
+        with patch.object(verify.subprocess, "check_output", return_value=output):
+            return check("aapt2", "patched.apk", *arguments)
+
+    # aapt2 tags each overlayable color, which an earlier pattern read as a missing color.
+    def test_overlayable_colors_keep_their_default(self):
+        output = ("    resource 0x7f060616 color/gray_70 OVERLAYABLE\n      () #ffb3b3b3\n"
+                  "    resource 0x7f060617 color/gray_7_50\n      () #80121212\n")
+        self.assertEqual({"gray_70": ("0x7f060616", "#ffb3b3b3"), "gray_7_50": ("0x7f060617", "#80121212")},
+                         self.dump(output, verify.colors))
+
+    def test_the_overlayable_declares_exactly_the_role_map(self):
+        names = verify.role_map_colors()
+        self.assertEqual(62, len(names))
+        def overlayable(colors):
+            return 'name="SpicetifyTheme" actor=""\n  policies="public"\n' + "".join(f"    color/{name}\n" for name in colors)
+        self.assertEqual(62, self.dump(overlayable(names), verify.verify_overlayable, True))
+        with self.assertRaisesRegex(AssertionError, r"missing \['gray_7'\]"):
+            self.dump(overlayable(names[1:]), verify.verify_overlayable, True)
+        with self.assertRaisesRegex(AssertionError, r"extra \['gray_7_50'\]"):
+            self.dump(overlayable(names + ["gray_7_50"]), verify.verify_overlayable, True)
+        with self.assertRaisesRegex(AssertionError, "without Theme colors"):
+            self.dump(overlayable(names), verify.verify_overlayable, False)
+        with self.assertRaisesRegex(AssertionError, "Missing the public SpicetifyTheme"):
+            self.dump("", verify.verify_overlayable, True)
+        self.assertEqual(0, self.dump("", verify.verify_overlayable, False))
+
+
 if __name__ == "__main__":
     unittest.main()

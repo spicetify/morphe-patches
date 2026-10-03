@@ -28,7 +28,7 @@ import android.widget.RadioButton;
 import android.widget.ScrollView;
 import android.widget.Switch;
 import android.widget.TextView;
-import app.spicetify.extension.spotify.theme.ThemeOverlay;
+import app.spicetify.extension.spotify.theme.ThemeRuntime;
 
 /** Builds settings views that follow Spotify's native settings pages, using Spotify's fonts and icons when present. */
 final class SpotifyStyle {
@@ -40,19 +40,17 @@ final class SpotifyStyle {
 
     /** The in-app theme background, or Spotify's own when none is chosen. */
     static int background() {
-        Integer saved = PatchSettings.themeBackground();
-        return saved == null ? Color.rgb(18, 18, 18) : saved;
+        return ThemeRuntime.color("main", Color.rgb(18, 18, 18));
     }
 
     /** The in-app theme accent, or Spotify's green when none is chosen. */
     static int accent() {
-        Integer saved = PatchSettings.themeAccent();
-        return saved == null ? Color.rgb(30, 215, 96) : saved;
+        return ThemeRuntime.color("button", Color.rgb(30, 215, 96));
     }
 
-    /** Header bars and other top surfaces. */
+    /** Header bars and other top surfaces: the theme's card color, or Spotify's own. */
     static int surface() {
-        return ThemeOverlay.surface();
+        return ThemeRuntime.color("card", Color.rgb(40, 40, 40));
     }
 
     static int elevated() {

@@ -23,10 +23,12 @@ reference for these features:
 - `patches/src/main/kotlin/app/revanced/patches/spotify/misc/privacy/SanitizeSharingLinksPatch.kt`
 - `extensions/shared/src/main/java/app/revanced/extension/spotify/misc/privacy/SanitizeSharingLinksPatch.java`
 
-The theme resource selection is adapted from that implementation. The local
-patch adds strict color validation, requires every selected resource before
-editing, and limits its scope to backgrounds and accents. It does not import
-the historical extension, animation hooks, or icon assets.
+The theme's color map starts from that implementation's resource selection
+and extends it to the colors listed in `patches/src/main/resources/theme/`,
+checked against Spotify 9.1.80.2221. The patch requires each mapped color
+exactly once, edits no color values, and declares the mapped colors
+overlayable. It does not import the historical extension, animation hooks, or
+icon assets.
 
 The sharing implementation uses a new fingerprint for Spotify 9.1.80.2221's
 URL builder. Its new Java helper removes named tracking parameters while
@@ -35,6 +37,21 @@ query. These adaptations were made on September 17, 2026.
 
 No code from binary-only candidates was imported. Spotify APKs and other
 proprietary assets are excluded.
+
+## Morphe theme overlay
+
+`ThemeOverlay.java` ports the self-targeting overlay technique of Morphe's
+[`ThemeColorOverlay.java`](https://github.com/MorpheApp/morphe-patches/blob/86e146c54bad8450265f2ac2d734722fd682794c/extensions/shared-youtube/library/src/main/java/app/morphe/extension/shared/theme/ThemeColorOverlay.java)
+in MorpheApp/morphe-patches (GPL-3.0 with the Morphe NOTICE this repository
+retains), at `86e146c54bad8450265f2ac2d734722fd682794c`. Its header keeps
+Morphe's copyright and notice reference. `ThemeRuntime.java` follows Morphe in
+registering the overlay on every start, because Android deletes an app's own
+overlays when it is installed again. Local changes, made on September 25,
+2026: one overlay for all mapped Spotify colors instead of separate dark and
+light background overlays, a single shared `ResourcesLoader` that is updated
+in place, and loading through activity lifecycle callbacks instead of
+Morphe's base-context hook. On October 2, 2026: each update closes the
+provider it replaces.
 
 ## APK reverse engineering skill
 
