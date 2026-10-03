@@ -32,8 +32,8 @@ import java.util.Map;
 import java.util.regex.Pattern;
 
 /**
- * The Appearance page: a list of themes, a theme pasted from desktop Spicetify, and individually picked
- * colors as the custom option.
+ * The Appearance page: a list of themes, the Spicetify Marketplace, a theme pasted from desktop
+ * Spicetify, and individually picked colors as the custom option.
  */
 final class ThemeSettings {
     private static final Pattern HEX = Pattern.compile("#?([0-9a-fA-F]{6}|[0-9a-fA-F]{8})");
@@ -64,11 +64,13 @@ final class ThemeSettings {
             });
         }
         if (ThemeState.SCHEME.equals(current.kind)) {
-            // A pasted theme is listed while it's in use; choosing another theme replaces it.
+            // A Marketplace or pasted theme is listed while it's in use; choosing another theme replaces it.
             SpotifyStyle.themeRow(content, current.label, null, colors(activity, current), true, view -> {});
             List<String> warnings = ThemeResolver.warnings(current.colors);
             if (!warnings.isEmpty()) content.addView(intro(activity, TextUtils.join(" ", warnings)));
         }
+        SpotifyStyle.actionRow(content, "Spicetify Marketplace", "Browse community themes and use their colors",
+                view -> activity.openPage(SpicetifySettingsScreen.PAGE_MARKETPLACE));
         SpotifyStyle.actionRow(content, "Paste a Spicetify theme", "Use a color.ini, or CSS with --spice-* colors",
                 view -> paste(activity, content));
         boolean custom = ThemeState.CUSTOM.equals(current.kind);
@@ -111,7 +113,7 @@ final class ThemeSettings {
     }
 
     /** A theme's background, surface and accent: its main, card and button roles, or Spotify's own. */
-    private static int[] colors(Context context, ThemeState.Selection theme) {
+    static int[] colors(Context context, ThemeState.Selection theme) {
         Map<String, Integer> roles = ThemeRuntime.roleColors(context, theme);
         String[] names = {"main", "card", "button"};
         int[] colors = new int[names.length];
@@ -334,19 +336,26 @@ final class ThemeSettings {
 
     /**
      * Applies and saves a theme. Spotify's views and Compose screens built from then on take it, and
-     * colors some screens read once take it after a restart, so a restart is offered.
+     * colors some screens read once take it after a restart, so a restart is offered. Returns false,
+     * after saying so, when Spotify can't load the theme's colors.
      */
-    private static void save(SpicetifySettingsScreen activity, LinearLayout content, String name, ThemeState.Selection theme) {
+    static boolean apply(SpicetifySettingsScreen activity, String name, ThemeState.Selection theme) {
         if (!ThemeRuntime.select(activity, theme)) {
             new SpotifySheet(activity, "Colors not applied",
                     "Spotify could not load the new colors, so the theme is unchanged.")
                     .primary("OK", () -> true).show();
-            return;
+            return false;
         }
         PatchSettings.markRestartRequired();
-        content.removeAllViews();
-        build(activity, content);
         activity.refreshRestartBar();
         SpotifyRestart.prompt(activity, "Restart Spotify to finish applying " + name + "?");
+        return true;
+    }
+
+    /** Applies a theme chosen on this page, then lists it as the theme in use. */
+    private static void save(SpicetifySettingsScreen activity, LinearLayout content, String name, ThemeState.Selection theme) {
+        if (!apply(activity, name, theme)) return;
+        content.removeAllViews();
+        build(activity, content);
     }
 }

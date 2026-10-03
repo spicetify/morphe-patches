@@ -68,6 +68,17 @@ would complete with defaults, clamp, or read from the desktop
 (`${xrdb:...}` and environment variables) are skipped, as are lines it
 would reject.
 
+## Spicetify Marketplace
+
+The Marketplace page follows the discovery, blacklist and manifest rules of
+[spicetify/marketplace](https://github.com/spicetify/marketplace/tree/ec6f772891bad4bf08b645447c2ade6b06c4f991)
+at `ec6f772891bad4bf08b645447c2ade6b06c4f991` (MIT), reimplemented in Java.
+No code or assets are copied. The blacklist is fetched at runtime from that
+repository's `main` branch. Local changes: only themes with a color scheme
+Spotify can use are listed, most stars first; only the first 50 items of a
+manifest are read, and long names and descriptions are cut short; and the list
+is cached for six hours.
+
 ## APK reverse engineering skill
 
 `.agents/skills/apk-reverse` contains the skill directory from

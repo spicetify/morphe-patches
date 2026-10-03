@@ -40,7 +40,7 @@ public final class SpicetifyTheme {
      * that ends at the last "]", and a value that ends at ";" or at a "#" after its first character. A leading byte order mark is ignored. Lines that don't parse
      * and values a phone can't use are skipped, never guessed.
      */
-    static List<Scheme> parseColorIni(String text) {
+    public static List<Scheme> parseColorIni(String text) {
         Map<String, Map<String, Integer>> schemes = new LinkedHashMap<>();
         Map<String, Integer> current = null;
         String body = text.startsWith("\ufeff") ? text.substring(1) : text;

@@ -75,8 +75,11 @@ final class SpotifyStyle {
                 Math.min(255, Color.green(color) + amount), Math.min(255, Color.blue(color) + amount));
     }
 
-    /** A full-screen page in the dialog's window; its back button closes the dialog like Back does. */
-    static View screen(Dialog dialog, String title, View content, View footer) {
+    /**
+     * A full-screen page in the dialog's window; its back button closes the dialog like Back does.
+     * Content that scrolls on its own, such as a list, fills the page instead of scrolling in it.
+     */
+    static View screen(Dialog dialog, String title, View content, View footer, boolean scrolls) {
         Context context = dialog.getContext();
         Window window = dialog.getWindow();
         window.setStatusBarColor(surface());
@@ -105,14 +108,20 @@ final class SpotifyStyle {
         bar.addView(heading, headingParams);
         root.addView(header, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
-        ScrollView scroll = new ScrollView(context);
-        scroll.setFillViewport(true);
-        scroll.setClipToPadding(false);
-        scroll.addView(content, new ScrollView.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-        root.addView(scroll, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1));
+        final View page;
+        if (scrolls) {
+            ScrollView scroll = new ScrollView(context);
+            scroll.setFillViewport(true);
+            scroll.setClipToPadding(false);
+            scroll.addView(content, new ScrollView.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+            page = scroll;
+        } else {
+            page = content;
+        }
+        root.addView(page, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1));
         root.addView(footer, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
-        int bottomPadding = dp(context, 24);
+        int bottomPadding = scrolls ? dp(context, 24) : 0;
         root.setOnApplyWindowInsetsListener((view, insets) -> {
             int left = insets.getSystemWindowInsetLeft();
             int right = insets.getSystemWindowInsetRight();
@@ -121,12 +130,12 @@ final class SpotifyStyle {
                 right = Math.max(right, insets.getDisplayCutout().getSafeInsetRight());
             }
             header.setPadding(left, insets.getSystemWindowInsetTop(), right, 0);
-            scroll.setPadding(left, 0, right, bottomPadding);
+            page.setPadding(left, 0, right, bottomPadding);
             footer.setPadding(left, 0, right, 0);
             root.setPadding(0, 0, 0, insets.getSystemWindowInsetBottom());
             return insets.consumeSystemWindowInsets();
         });
-        scroll.setPadding(0, 0, 0, bottomPadding);
+        page.setPadding(0, 0, 0, bottomPadding);
         return root;
     }
 

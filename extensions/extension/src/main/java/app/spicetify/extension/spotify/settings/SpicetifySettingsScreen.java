@@ -8,6 +8,7 @@ import android.os.Handler;
 import android.os.Looper;
 import android.view.ContextThemeWrapper;
 import android.view.View;
+import android.view.ViewGroup;
 import android.text.TextUtils;
 import android.widget.LinearLayout;
 import android.widget.TextView;
@@ -31,6 +32,7 @@ public final class SpicetifySettingsScreen extends ContextThemeWrapper {
     public static final String PAGE_SHARING = "sharing";
     public static final String PAGE_APPEARANCE = "appearance";
     public static final String PAGE_SERVER = "server";
+    public static final String PAGE_MARKETPLACE = "marketplace";
     private static final String OPEN_PAGES = "app.spicetify.extension.spotify.settings.pages";
     private static final List<SpicetifySettingsScreen> shown = new ArrayList<>();
     private static Application tracked;
@@ -38,6 +40,7 @@ public final class SpicetifySettingsScreen extends ContextThemeWrapper {
     private final Activity activity;
     private final String page;
     private final Dialog dialog;
+    private final LinearLayout content;
     private View restartBar;
 
     public static void open(Activity activity) {
@@ -59,7 +62,7 @@ public final class SpicetifySettingsScreen extends ContextThemeWrapper {
         this.activity = activity;
         this.page = page;
         dialog = new Dialog(this, android.R.style.Theme_Material_NoActionBar);
-        LinearLayout content = SpotifyStyle.column(this);
+        content = SpotifyStyle.column(this);
         String title;
         if (PAGE_ADS.equals(page)) {
             title = "Ads";
@@ -76,18 +79,22 @@ public final class SpicetifySettingsScreen extends ContextThemeWrapper {
         } else if (PAGE_SERVER.equals(page)) {
             title = "Server files";
             buildServer(content);
+        } else if (PAGE_MARKETPLACE.equals(page)) {
+            title = "Spicetify Marketplace";
+            buildMarketplace(content);
         } else {
             title = "Spicetify";
             buildRoot(content);
         }
         dialog.setTitle(title);
         restartBar = SpotifyStyle.restartBar(this, view -> SpotifyRestart.restart(this));
-        dialog.setContentView(SpotifyStyle.screen(dialog, title, content, restartBar));
+        // The Marketplace's list scrolls on its own.
+        dialog.setContentView(SpotifyStyle.screen(dialog, title, content, restartBar, !PAGE_MARKETPLACE.equals(page)));
         refreshRestartBar();
         dialog.setOnDismissListener(closed -> {
             shown.remove(this);
             // The page below shows again; refresh it as the activity did when it resumed.
-            for (SpicetifySettingsScreen below : shown) below.refreshRestartBar();
+            for (SpicetifySettingsScreen below : shown) below.refresh();
         });
     }
 
@@ -129,6 +136,19 @@ public final class SpicetifySettingsScreen extends ContextThemeWrapper {
     /** Shows the restart bar while a setting read at startup is waiting for Spotify to restart. */
     void refreshRestartBar() {
         if (restartBar != null) restartBar.setVisibility(PatchSettings.restartRequired() ? View.VISIBLE : View.GONE);
+    }
+
+    /** The restart bar, and on Appearance the theme in use, which the Marketplace above it can change. */
+    private void refresh() {
+        refreshRestartBar();
+        if (!PAGE_APPEARANCE.equals(page)) return;
+        content.removeAllViews();
+        buildAppearance(content);
+    }
+
+    /** Opens another page above this one. */
+    void openPage(String page) {
+        open(activity, page);
     }
 
     private void buildRoot(LinearLayout content) {
@@ -216,6 +236,10 @@ public final class SpicetifySettingsScreen extends ContextThemeWrapper {
         int padding = SpotifyStyle.dp(this, 16);
         content.setPadding(padding, 0, padding, 0);
         content.addView(new ServerFilesSettings(this));
+    }
+
+    private void buildMarketplace(LinearLayout content) {
+        content.addView(new MarketplaceSettings(this), new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1));
     }
 
     private void chooseHomePins() {
