@@ -8,6 +8,7 @@ import android.content.res.Resources;
 import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
+import java.io.File;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.Map;
@@ -48,26 +49,46 @@ public final class ThemeRuntime {
             // same), and the table follows the installed Spotify's resource IDs, so the saved theme is
             // registered on every start. Material You gets the current wallpaper colors this way too.
             Map<String, Integer> colors = roleColors(application, ThemeState.load(application));
-            Map<String, Integer> values = values(colors);
+            boolean image = ThemeBackground.hasImage(application);
+            Map<String, Integer> values = values(colors, image);
             // Compose reads the values from memory, so at startup it follows the saved theme even if
             // the resources can't take it.
-            follow(colors, values);
+            follow(colors, values, image);
             load(application, values);
         } catch (Exception e) {
             Log.w(TAG, "Theme could not be loaded", e);
         }
     }
 
-    /** Applies and saves a selection. Returns false, and changes and saves nothing, when it can't be applied. */
+    /**
+     * Applies and saves a selection without a background image, deleting the one in use. Returns false,
+     * and changes and saves nothing, when it can't be applied.
+     */
     public static boolean select(Context context, ThemeState.Selection selection) {
+        return select(context, selection, null);
+    }
+
+    /**
+     * Applies and saves a selection with the image to draw behind Spotify, or none: an image from
+     * {@link ThemeBackground#fit}, at about screen size. Returns false, and changes and saves nothing,
+     * when it can't be applied, or when the image isn't one Android can read.
+     */
+    public static boolean select(Context context, ThemeState.Selection selection, byte[] image) {
         try {
             // The role map is empty only when the theme patch didn't inject its table.
             if (!supported() || ThemeRoleMap.load().isEmpty()) return false;
             Map<String, Integer> colors = roleColors(context, selection);
-            Map<String, Integer> values = values(colors);
-            // The resources first: when they can't take the theme, Compose keeps the current one.
-            load(context, values);
-            follow(colors, values);
+            Map<String, Integer> values = values(colors, image != null);
+            // The image is written first, so once the resources take the theme only a rename is left.
+            File staged = image == null ? null : ThemeBackground.stage(context, image);
+            try {
+                // The resources first: when they can't take the theme, Compose keeps the current one.
+                load(context, values);
+                ThemeBackground.replace(context, staged);
+            } finally {
+                if (staged != null) staged.delete();
+            }
+            follow(colors, values, image != null);
             ThemeState.save(context, selection);
             return true;
         } catch (Exception e) {
@@ -91,15 +112,15 @@ public final class ThemeRuntime {
                 : ThemePresets.colors(context, selection.kind);
     }
 
-    /** One value for each color resource the role colors map. */
-    private static Map<String, Integer> values(Map<String, Integer> colors) {
-        return ThemeRoleMap.overlayValues(ThemeRoleMap.load(), colors);
+    /** One value for each color resource the role colors map, with the page background see-through behind an image. */
+    private static Map<String, Integer> values(Map<String, Integer> colors, boolean image) {
+        return ThemeRoleMap.overlayValues(ThemeRoleMap.load(), image ? ThemeResolver.seeThrough(colors) : colors);
     }
 
-    /** Hands a theme to Compose, and to the screens Spicetify draws itself. */
-    private static void follow(Map<String, Integer> colors, Map<String, Integer> values) {
+    /** Hands a theme to Compose, and its opaque colors to the screens Spicetify draws itself. */
+    private static void follow(Map<String, Integer> colors, Map<String, Integer> values, boolean image) {
         roles = colors;
-        ComposeTheme.update(values);
+        ComposeTheme.update(values, image);
     }
 
     /** Lays a theme's values over Spotify's resources; none restore Spotify's own. */
@@ -122,7 +143,10 @@ public final class ThemeRuntime {
         }
     }
 
-    /** Loads the theme into each activity's resources before any of its views exist. */
+    /**
+     * Loads the theme into each activity's resources before any of its views exist, and draws the
+     * background image after, once the activity's own onCreate can no longer overwrite it.
+     */
     @TargetApi(Build.VERSION_CODES.Q)
     private static final class Callbacks implements Application.ActivityLifecycleCallbacks {
         private final boolean overlay;
@@ -141,6 +165,17 @@ public final class ThemeRuntime {
         }
 
         @Override public void onActivityCreated(Activity activity, Bundle state) {}
+
+        @Override
+        public void onActivityPostCreated(Activity activity, Bundle state) {
+            try {
+                ThemeBackground.applyTo(activity);
+            } catch (RuntimeException | OutOfMemoryError e) {
+                // Without the image, Spotify draws its own background; never crash its start for it.
+                Log.w(TAG, "Background could not be drawn in " + activity.getClass().getName(), e);
+            }
+        }
+
         @Override public void onActivityStarted(Activity activity) {}
         @Override public void onActivityResumed(Activity activity) {}
         @Override public void onActivityPaused(Activity activity) {}

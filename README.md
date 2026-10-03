@@ -32,7 +32,7 @@ Pixel 8 with a 35,000-track Jellyfin library.
 | Patch | Default | Behavior |
 | --- | --- | --- |
 | Clean sharing links | Enabled | Removes `si`, `pi`, and known `utm_*` parameters from `open.spotify.com` links. Preserves timestamps, context, other parameters, and fragments. |
-| Theme colors | Disabled | Choose a theme such as OLED, Midnight, or Nord in Spicetify settings, apply a community theme's colors from the Spicetify Marketplace, paste a desktop Spicetify theme's `color.ini`, or pick background, surface, and accent colors yourself, then restart Spotify when it offers. Requires Android 11 or later. Hardcoded colors and some screens keep Spotify's colors. |
+| Theme colors | Disabled | Choose a theme such as OLED, Midnight, or Nord in Spicetify settings, apply a community theme's colors and background image from the Spicetify Marketplace, paste a desktop Spicetify theme's `color.ini`, or pick background, surface, and accent colors yourself, then restart Spotify when it offers. Requires Android 11 or later. Hardcoded colors and some screens keep Spotify's colors. |
 | Pin shortcuts on Home | Disabled | Moves selected native Home shortcuts first. Configure pins in Spotify's Spicetify settings, then restart Spotify. |
 | Local files from a server | Disabled | Streams an HTTPS WebDAV folder or Jellyfin library into Local Files and Your Library, with its own filter chip. Requires Android 8 or later, byte-range support, and Spotify's Local audio files setting; configure the server in Spotify's Spicetify settings. Not available for root mount installs, because its track provider and server browser must be in the manifest. |
 
@@ -121,8 +121,13 @@ installed, **Appearance** lists themes, including OLED and, on Android 12 or
 later, Material You, and a **Custom** option for picking background, surface,
 and accent colors. **Spicetify Marketplace** lists the community themes the
 desktop Marketplace offers, most stars first, with previews and search. Tap one
-to download its `color.ini` and choose a color scheme; only its colors apply.
-The list is kept for six hours, and **Refresh** reloads it from GitHub.
+to download its `color.ini` and choose a color scheme. Its colors apply, and
+so does the background image it shows on desktop when its scripts or
+`user.css` name one, as Hazy's and CyberNight's do. The list is kept for six
+hours, and **Refresh** reloads it from GitHub. **Galaxy V2**, pinned at the
+top, brings Galaxy's colors and background image. A background image shows
+behind Spotify's main screen, whose pages turn see-through over it, and
+**Appearance** offers **Blur background image** while one is in use.
 **Paste a Spicetify theme** takes a desktop theme's
 `color.ini`, or CSS with `--spice-*` colors, and lets you choose its color
 scheme and an accent key such as Catppuccin's `mauve`. Settings that Spotify

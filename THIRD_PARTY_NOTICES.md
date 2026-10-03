@@ -79,6 +79,20 @@ Spotify can use are listed, most stars first; only the first 50 items of a
 manifest are read, and long names and descriptions are cut short; and the list
 is cached for six hours.
 
+## Galaxy
+
+A theme's background image is shown the way
+[harbassan/spicetify-galaxy](https://github.com/harbassan/spicetify-galaxy/tree/2b2e33c02c5adffd6737e4a93c261e961fad8eca),
+at `2b2e33c02c5adffd6737e4a93c261e961fad8eca`, shows one on desktop: the image
+fills the window, center-cropped and darkened, Spotify's page background turns
+see-through over it, and blurring it is an option that starts off. The
+Marketplace's Galaxy V2 entry downloads that repository's `color.ini`,
+`preview_playlist.png` and `assets/default_bg.jpg` from its `main` branch when
+it's shown or applied. Galaxy's own Marketplace listing brings the same image:
+its `theme.js` names it as `defImage`, and both are downloaded when the theme
+is applied. That repository has no license, so nothing from it is copied or
+bundled: no code, CSS, or images.
+
 ## APK reverse engineering skill
 
 `.agents/skills/apk-reverse` contains the skill directory from

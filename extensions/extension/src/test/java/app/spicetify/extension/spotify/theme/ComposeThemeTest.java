@@ -64,7 +64,8 @@ public class ComposeThemeTest {
         public Object d;
     }
 
-    private static final String TABLE = "a.a=base@FF121212,a.b=tinted@1AFFFFFF,b.a=accent@FF1ED760;d.a=gray@FF121212";
+    /** {@code *} marks a field that turns see-through while a background image shows. */
+    private static final String TABLE = "a.a=base@FF121212*,a.b=tinted@1AFFFFFF,b.a=accent@FF1ED760;d.a=gray@FF121212*";
 
     private final Palette stock = new Palette(new Colors(color(0xFF121212), color(0x1AFFFFFF)),
             new Colors(color(0xFF1ED761), color(0xFF000000)));
@@ -86,19 +87,19 @@ public class ComposeThemeTest {
     @After
     public void restoreSpotifyColors() {
         ComposeTheme.tables = ComposeTheme.parse("");
-        ComposeTheme.update(Collections.<String, Integer>emptyMap());
+        ComposeTheme.update(Collections.<String, Integer>emptyMap(), false);
     }
 
     @Test
     public void mappedColorsTakeTheThemeAndTheRestKeepSpotifys() {
-        ComposeTheme.update(values);
+        ComposeTheme.update(values, false);
         Palette themed = (Palette) ComposeTheme.palette(stock);
         assertEquals(color(0xFF102040), themed.a.a);
         assertEquals(color(0x1ACBA6F7), themed.a.b);
         // b.a's stock color moved and b.b isn't mapped, so that group is Spotify's own object.
         assertSame(stock.b, themed.b);
         assertSame(themed, ComposeTheme.palette(stock));
-        ComposeTheme.update(values);
+        ComposeTheme.update(values, false);
         assertNotSame(themed, ComposeTheme.palette(stock));
     }
 
@@ -107,28 +108,54 @@ public class ComposeThemeTest {
         RawColors raw = new RawColors();
         Colors gray = new Colors(color(0xFF121212), color(0xFF181818));
         raw.d = gray;
-        ComposeTheme.update(values);
+        ComposeTheme.update(values, false);
         ComposeTheme.primitives(raw);
         assertEquals(color(0xFF102040), ((Colors) raw.d).a);
         assertEquals(gray.b, ((Colors) raw.d).b);
 
-        ComposeTheme.update(Collections.<String, Integer>emptyMap());
+        ComposeTheme.update(Collections.<String, Integer>emptyMap(), true);
         assertSame(stock, ComposeTheme.palette(stock));
         assertSame(gray, raw.d);
+        assertEquals(color(0x01102040), ComposeTheme.iconTint(color(0x01102040)));
+    }
+
+    @Test
+    public void aBackgroundImageClearsOnlySeeThroughColorsAndKeepsTheirRgb() {
+        RawColors raw = new RawColors();
+        raw.d = new Colors(color(0xFF121212), color(0xFF181818));
+        ComposeTheme.primitives(raw);
+        ComposeTheme.update(values, true);
+        Palette themed = (Palette) ComposeTheme.palette(stock);
+        // Nearly clear, never Compose's Color.Transparent.
+        assertEquals(color(0x01102040), themed.a.a);
+        assertEquals(color(0x1ACBA6F7), themed.a.b);
+        assertEquals(color(0x01102040), ((Colors) raw.d).a);
+        assertEquals(0f, ComposeTheme.scrimAlpha(0.75f), 0f);
+        // An icon tinted with the see-through background stays opaque; other tints don't change.
+        assertEquals(color(0xFF102040), ComposeTheme.iconTint(color(0x01102040)));
+        assertEquals(color(0x1ACBA6F7), ComposeTheme.iconTint(color(0x1ACBA6F7)));
+        // An icon tinted fully clear on purpose stays clear.
+        assertEquals(color(0x00102040), ComposeTheme.iconTint(color(0x00102040)));
+
+        ComposeTheme.update(values, false);
+        assertEquals(color(0xFF102040), ((Palette) ComposeTheme.palette(stock)).a.a);
+        assertEquals(color(0xFF102040), ((Colors) raw.d).a);
+        assertEquals(0.75f, ComposeTheme.scrimAlpha(0.75f), 0f);
+        assertEquals(color(0x01102040), ComposeTheme.iconTint(color(0x01102040)));
     }
 
     @Test
     public void aGroupBuiltFromItsFieldsInAnotherOrderKeepsSpotifysPalette() {
         // Copying it would swap its colors, so the whole palette stays Spotify's.
         SwappedPalette stock = new SwappedPalette(new Swapped(color(0x1AFFFFFF), color(0xFF121212)));
-        ComposeTheme.update(values);
+        ComposeTheme.update(values, false);
         assertSame(stock, ComposeTheme.palette(stock));
     }
 
     @Test
     public void theStaticSurfacesFollowTheCardColor() {
         assertEquals(color(0xFF282828), ComposeTheme.surface(color(0xFF282828)));
-        ComposeTheme.update(values);
+        ComposeTheme.update(values, false);
         assertEquals(color(0xFF203040), ComposeTheme.surface(color(0xFF282828)));
         // Anything but Spotify's #282828 stays.
         assertEquals(color(0xFF2A2A2A), ComposeTheme.surface(color(0xFF2A2A2A)));

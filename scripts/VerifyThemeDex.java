@@ -10,6 +10,8 @@ class VerifyThemeDex {
     static final String PALETTE = THEME + "ComposeTheme;->palette(Ljava/lang/Object;)Ljava/lang/Object;";
     static final String PRIMITIVES = THEME + "ComposeTheme;->primitives(Ljava/lang/Object;)V";
     static final String SURFACE = THEME + "ComposeTheme;->surface(J)J";
+    static final String SCRIM = THEME + "ComposeTheme;->scrimAlpha(F)F";
+    static final String ICON = THEME + "ComposeTheme;->iconTint(J)J";
     static final String COLOR = "Lp/iae1;->g(J)J";
     static final String DARK_PALETTE = "Lp/iwt;->a:Lp/avt;";
     static final String RAW_COLORS = "Lp/rut;->a:Lp/jua;";
@@ -18,6 +20,10 @@ class VerifyThemeDex {
     static final Map<String, String> PRIMITIVE_SITES = Map.of("Lp/rut;-><clinit>", RAW_COLORS);
     static final Map<String, String> SURFACE_SITES = Map.of("Lp/pz01;-><clinit>", "Lp/pz01;->a:J", "Lp/t5s0;-><clinit>", "Lp/t5s0;->b:J");
     static final long STOCK_SURFACE = 0xFF282828L;
+    /** The header scrim, whose top and bottom alphas, parameters 1 and 2, pass through scrimAlpha first. */
+    static final String SCRIM_SITE = "Lp/kse1;->j";
+    /** Encore's icon draw, whose tint, parameter 3, passes through iconTint first. */
+    static final String ICON_SITE = "Lp/c9e1;->b";
 
     static void require(boolean condition, String message) {
         if (!condition) throw new AssertionError(message);
@@ -34,6 +40,19 @@ class VerifyThemeDex {
     static boolean is(Instruction instruction, Opcode opcode, int register, String reference) {
         return instruction.getOpcode() == opcode && register(instruction) == register
                 && (reference == null || reference(instruction).equals(reference));
+    }
+
+    /** The register of a static method's parameter {@code index}, or -1 when it isn't of {@code type}. */
+    static int parameter(Method method, int index, String type) {
+        var types = method.getParameterTypes();
+        if (index >= types.size() || !types.get(index).toString().equals(type)) return -1;
+        int register = method.getImplementation().getRegisterCount();
+        for (int i = types.size() - 1; i >= index; i--) register -= wide(types.get(i)) ? 2 : 1;
+        return register;
+    }
+
+    static boolean wide(CharSequence type) {
+        return type.toString().equals("J") || type.toString().equals("D");
     }
 
     /** A static call in the range form whose {@code count} arguments start at {@code register}. */
@@ -66,7 +85,8 @@ class VerifyThemeDex {
     /**
      * With Theme colors selected, the default dark palette passes through ComposeTheme right after both
      * of its reads, the raw colors right after their store, and the two #282828 surfaces right before
-     * theirs; the extension holds the role and Compose tables. Otherwise there are no hooks and no tables.
+     * theirs; the header scrim's alphas and Encore's icon tint pass through it before their methods use
+     * them; the extension holds the role and Compose tables. Otherwise there are no hooks and no tables.
      */
     static void verify(Collection<ClassDef> definitions, boolean enabled) {
         Map<String, ClassDef> classes = new HashMap<>();
@@ -74,6 +94,8 @@ class VerifyThemeDex {
         Map<String, Integer> palette = new HashMap<>();
         Map<String, Integer> primitives = new HashMap<>();
         Map<String, Integer> surfaces = new HashMap<>();
+        Set<Integer> scrims = new HashSet<>();
+        Set<Integer> icons = new HashSet<>();
         for (var definition : definitions) for (var method : definition.getMethods()) {
             var code = code(method);
             String site = definition.getType() + "->" + method.getName();
@@ -100,6 +122,18 @@ class VerifyThemeDex {
                             && is(code.get(i - 1), Opcode.MOVE_RESULT_WIDE, value, null) && range(code.get(i), value, 2)
                             && is(code.get(i + 1), Opcode.MOVE_RESULT_WIDE, value, null)
                             && is(code.get(i + 2), Opcode.SPUT_WIDE, value, SURFACE_SITES.get(site)), "Malformed surface hook in " + site);
+                } else if (called.equals(SCRIM)) {
+                    require(site.equals(SCRIM_SITE), "Unexpected scrim hook in " + site);
+                    scrims.add(i);
+                    int alpha = parameter(method, i == 0 ? 1 : 2, "F");
+                    require(alpha >= 0 && range(code.get(i), alpha, 1) && i + 1 < code.size()
+                            && is(code.get(i + 1), Opcode.MOVE_RESULT, alpha, null), "Malformed scrim hook in " + site);
+                } else if (called.equals(ICON)) {
+                    require(site.equals(ICON_SITE), "Unexpected icon tint hook in " + site);
+                    icons.add(i);
+                    int tint = parameter(method, 3, "J");
+                    require(tint >= 0 && range(code.get(i), tint, 2) && i + 1 < code.size()
+                            && is(code.get(i + 1), Opcode.MOVE_RESULT_WIDE, tint, null), "Malformed icon tint hook in " + site);
                 }
             }
         }
@@ -109,11 +143,14 @@ class VerifyThemeDex {
             require(palette.keySet().equals(PALETTE_SITES.keySet()), "Missing palette hooks: " + palette.keySet());
             require(primitives.keySet().equals(PRIMITIVE_SITES.keySet()), "Missing raw color hook");
             require(surfaces.keySet().equals(SURFACE_SITES.keySet()), "Missing surface hooks: " + surfaces.keySet());
+            require(scrims.equals(Set.of(0, 2)), "Scrim hooks must open " + SCRIM_SITE + ", found at " + scrims);
+            require(icons.equals(Set.of(0)), "The icon tint hook must open " + ICON_SITE + ", found at " + icons);
             require(roles != null && roles.startsWith("main:"), "Theme role table was not injected");
             require(compose != null && compose.split(";", -1).length == 2 && !compose.startsWith(";") && !compose.endsWith(";"),
                     "Compose color table was not injected");
         } else {
-            require(palette.isEmpty() && primitives.isEmpty() && surfaces.isEmpty(), "Theme hooks without Theme colors");
+            require(palette.isEmpty() && primitives.isEmpty() && surfaces.isEmpty() && scrims.isEmpty() && icons.isEmpty(),
+                    "Theme hooks without Theme colors");
             require((roles == null || roles.isEmpty()) && (compose == null || compose.isEmpty()), "Theme tables without Theme colors");
         }
     }

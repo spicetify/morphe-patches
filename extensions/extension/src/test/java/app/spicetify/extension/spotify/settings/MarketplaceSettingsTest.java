@@ -4,7 +4,9 @@ import android.app.Activity;
 import android.app.Dialog;
 import android.database.DataSetObserver;
 import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.os.Looper;
+import android.util.Base64;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewParent;
@@ -15,8 +17,11 @@ import android.widget.ListAdapter;
 import android.widget.ListView;
 import android.widget.ScrollView;
 import android.widget.TextView;
+import app.spicetify.extension.spotify.theme.ThemeBackground;
+import app.spicetify.extension.spotify.theme.ThemeBackgroundTest;
 import app.spicetify.extension.spotify.theme.ThemePresets;
 import app.spicetify.extension.spotify.theme.ThemeRoleMap;
+import app.spicetify.extension.spotify.theme.ThemeRuntime;
 import app.spicetify.extension.spotify.theme.ThemeState;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -40,6 +45,7 @@ import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
 import org.robolectric.Shadows;
 import org.robolectric.annotation.Config;
+import org.robolectric.annotation.GraphicsMode;
 import org.robolectric.annotation.Implementation;
 import org.robolectric.annotation.Implements;
 import org.robolectric.shadows.ShadowDialog;
@@ -67,12 +73,15 @@ public class MarketplaceSettingsTest {
             new Marketplace.Repo("ownerB", "repoB", "main", "https://github.com/ownerB/repoB", 1);
     private static final String TWO_SCHEMES = "[a]\nmain = 000000\n[b]\nmain = 0b1026\ncard = 1c2340\nbutton = 509bf5\n";
     private static final String ONE_SCHEME = "[dark]\nmain = 121212\n";
+    /** Galaxy's own color.ini, in short: one scheme. */
+    private static final String GALAXY_COLOR_INI = "[base]\ntext = FFFFFF\nmain = 000000\ncard = 000000\nbutton = F1F1F1\n";
 
     private final Marketplace.Fetcher productionFetcher = MarketplaceSettings.fetcher;
     private final Executor productionLoads = MarketplaceSettings.loads;
     private final Executor productionDownloads = MarketplaceSettings.downloads;
     private final Executor productionRequests = MarketplaceSettings.requests;
     private final PreviewImages productionPreviews = MarketplaceSettings.previews;
+    private final PreviewImages.Downloader productionBackgrounds = MarketplaceSettings.backgrounds;
     private final Map<String, String> responses = new HashMap<>();
     /** Every URL the fetcher was asked for, in order. */
     private final List<String> requested = new ArrayList<>();
@@ -80,6 +89,10 @@ public class MarketplaceSettingsTest {
     private final List<String> previewsDownloaded = new ArrayList<>();
     /** Work the fetcher does when it's asked for a URL, before it answers; each runs once. */
     private final Map<String, Runnable> onRequest = new HashMap<>();
+    /** Background images by URL; the image downloader fails with an HTTP 500 for any other. */
+    private final Map<String, byte[]> images = new HashMap<>();
+    /** An image in {@link #images} that isn't there: a 404. */
+    private static final byte[] GONE = new byte[0];
 
     @Before public void initialize() {
         var application = RuntimeEnvironment.getApplication();
@@ -87,6 +100,7 @@ public class MarketplaceSettingsTest {
         application.deleteSharedPreferences("spicetify_theme");
         new File(application.getCacheDir(), "spicetify_marketplace.json").delete();
         new File(application.getCacheDir(), "spicetify_marketplace_themes.json").delete();
+        new File(application.getFilesDir(), "spicetify_background").delete();
         PatchSettings.initialize(application);
         // A load a test left queued would be taken over by the next test's page.
         MarketplaceSettings.running = null;
@@ -107,6 +121,13 @@ public class MarketplaceSettingsTest {
             previewsDownloaded.add(url);
             return png();
         }, DIRECT);
+        MarketplaceSettings.backgrounds = url -> {
+            requested.add(url);
+            byte[] image = images.get(url);
+            if (image == GONE) throw new FileNotFoundException(url);
+            if (image == null) throw new IOException("HTTP 500 for " + url);
+            return image;
+        };
     }
 
     @After public void restore() {
@@ -115,6 +136,7 @@ public class MarketplaceSettingsTest {
         MarketplaceSettings.downloads = productionDownloads;
         MarketplaceSettings.requests = productionRequests;
         MarketplaceSettings.previews = productionPreviews;
+        MarketplaceSettings.backgrounds = productionBackgrounds;
     }
 
     @Test public void appearanceOpensTheMarketplaceFromARowNextToPaste() {
@@ -163,10 +185,10 @@ public class MarketplaceSettingsTest {
             View screen = open(decor()).getWindow().getDecorView();
             ListView list = first(screen, ListView.class);
             assertEquals(Arrays.asList("Aurora", "Borealis"), titles(list.getAdapter()));
-            View aurora = list.getAdapter().getView(0, null, list);
+            View aurora = list.getAdapter().getView(position(list, 0), null, list);
             assertTrue(visibleTexts(aurora).contains("ownerA • 100 stars"));
             assertTrue(visibleTexts(aurora).contains("A vivid theme"));
-            assertTrue(visibleTexts(list.getAdapter().getView(1, null, list)).contains("ownerB • 1 star"));
+            assertTrue(visibleTexts(list.getAdapter().getView(position(list, 1), null, list)).contains("ownerB • 1 star"));
             idle();
             assertEquals(1, Collections.frequency(previewsDownloaded, Marketplace.resolve("preview.png", REPO_A, "main")));
             assertNotNull(first(aurora, ImageView.class).getDrawable());
@@ -793,6 +815,290 @@ public class MarketplaceSettingsTest {
         }
     }
 
+    @Test public void pinsGalaxyV2AboveTheCommunityThemesAndSearchFindsIt() {
+        putTwoThemes();
+        try (var controller = appearance()) {
+            View screen = open(decor()).getWindow().getDecorView();
+            ListView list = first(screen, ListView.class);
+            ListAdapter adapter = list.getAdapter();
+            assertEquals(3, adapter.getCount());
+            assertSame(Marketplace.GALAXY_V2, adapter.getItem(0));
+            assertEquals(Arrays.asList("Aurora", "Borealis"), titles(adapter));
+            // Its stars aren't known, so its card names the author alone.
+            View galaxy = adapter.getView(0, null, list);
+            assertTrue(visibleTexts(galaxy).contains("harbassan"));
+            assertEquals("Galaxy V2, harbassan", galaxy.getContentDescription().toString());
+            assertTrue(previewsDownloaded.contains(Marketplace.GALAXY_V2.previewUrl));
+
+            EditText search = first(screen, EditText.class);
+            search.setText("galaxy");
+            assertEquals(1, adapter.getCount());
+            assertSame(Marketplace.GALAXY_V2, adapter.getItem(0));
+            search.setText("harbassan");
+            assertSame(Marketplace.GALAXY_V2, adapter.getItem(0));
+            search.setText("aurora");
+            assertEquals(1, adapter.getCount());
+            assertEquals(Collections.singletonList("Aurora"), titles(adapter));
+        }
+    }
+
+    @Test public void galaxyV2StaysListedWhenTheCommunityThemesFailToLoad() {
+        responses.put(Marketplace.SEARCH_URL + "1", "FAIL");
+        try (var controller = appearance()) {
+            View screen = open(decor()).getWindow().getDecorView();
+            ListAdapter adapter = first(screen, ListView.class).getAdapter();
+            assertEquals(1, adapter.getCount());
+            assertSame(Marketplace.GALAXY_V2, adapter.getItem(0));
+            assertTrue(visibleTexts(screen).contains("Couldn't load the Marketplace: Connection reset"));
+        }
+    }
+
+    @Test @Config(shadows = Patched.class) @GraphicsMode(GraphicsMode.Mode.NATIVE)
+    public void galaxyV2DownloadsItsSchemesThenItsImageAndAppliesBoth() throws IOException {
+        putTwoThemes();
+        responses.put(Marketplace.GALAXY_V2.schemesUrl, GALAXY_COLOR_INI);
+        images.put(Marketplace.GALAXY_V2.backgroundUrl, ThemeBackgroundTest.png(1200, 675)); // Galaxy's size
+        try (var controller = appearance()) {
+            View appearance = decor();
+            Dialog page = open(appearance);
+            ListView list = first(page.getWindow().getDecorView(), ListView.class);
+            tapGalaxy(list);
+            idle();
+            assertEquals(Arrays.asList(Marketplace.GALAXY_V2.schemesUrl, Marketplace.GALAXY_V2.backgroundUrl),
+                    requested.subList(requested.size() - 2, requested.size()));
+            Dialog prompt = ShadowDialog.getLatestDialog();
+            assertTrue(hasText(prompt.getWindow().getDecorView(), "Restart Spotify to finish applying Galaxy V2 (base)?"));
+            button(prompt, "Later").performClick();
+            assertEquals("Galaxy V2 (base)", ThemeState.load(controller.get()).label);
+            // Saved at about screen size: no side longer than the display's longer side.
+            BitmapFactory.Options saved = savedImage(controller.get());
+            int bound = Math.max(controller.get().getResources().getDisplayMetrics().widthPixels,
+                    controller.get().getResources().getDisplayMetrics().heightPixels);
+            assertEquals(bound, saved.outWidth);
+            assertEquals(Math.round(bound * 675 / 1200f), saved.outHeight, 1);
+
+            // Appearance lists it, with the blur switch its image brings.
+            page.onBackPressed();
+            idle();
+            assertNotNull(row(appearance, "Galaxy V2 (base), selected"));
+            assertTrue(hasTextContaining(appearance, "Blur background image"));
+
+            // A theme without an image takes it away.
+            page = open(appearance);
+            tap(first(page.getWindow().getDecorView(), ListView.class), 1);
+            idle();
+            button(ShadowDialog.getLatestDialog(), "Later").performClick();
+            assertEquals("Borealis (dark)", ThemeState.load(controller.get()).label);
+            assertFalse(ThemeBackground.hasImage(controller.get()));
+        }
+    }
+
+    @Test @Config(shadows = Patched.class) @GraphicsMode(GraphicsMode.Mode.NATIVE)
+    public void theImageComesWithTheSchemeChosenInTheSheet() {
+        putTwoThemes();
+        responses.put(Marketplace.GALAXY_V2.schemesUrl, TWO_SCHEMES);
+        images.put(Marketplace.GALAXY_V2.backgroundUrl, ThemeBackgroundTest.png(1200, 675));
+        try (var controller = appearance()) {
+            tapGalaxy(first(open(decor()).getWindow().getDecorView(), ListView.class));
+            idle();
+            Dialog chooser = ShadowDialog.getLatestDialog();
+            row(chooser.getWindow().getDecorView(), "b").performClick();
+            button(ShadowDialog.getLatestDialog(), "Later").performClick();
+            assertEquals("Galaxy V2 (b)", ThemeState.load(controller.get()).label);
+            assertTrue(ThemeBackground.hasImage(controller.get()));
+        }
+    }
+
+    @Test @Config(shadows = Patched.class) @GraphicsMode(GraphicsMode.Mode.NATIVE) // Android's own decoder, which refuses what isn't an image
+    public void galaxyV2AppliesNothingWhenItsImageFailsToDownloadOrIsNoImage() throws IOException {
+        putTwoThemes();
+        responses.put(Marketplace.GALAXY_V2.schemesUrl, GALAXY_COLOR_INI);
+        try (var controller = appearance()) {
+            byte[] before = theThemeBefore(controller.get());
+            View screen = open(decor()).getWindow().getDecorView();
+            ListView list = first(screen, ListView.class);
+            tapGalaxy(list);
+            idle();
+            assertProblem("Couldn't load Galaxy V2's background image: HTTP 500 for " + Marketplace.GALAXY_V2.backgroundUrl);
+
+            images.put(Marketplace.GALAXY_V2.backgroundUrl, "<html>Not Found</html>".getBytes(StandardCharsets.UTF_8));
+            tapGalaxy(list);
+            idle();
+            assertProblem("Couldn't load Galaxy V2's background image: Not an image Android can read");
+
+            // Out of memory, as with an image too large to decode.
+            MarketplaceSettings.backgrounds = url -> {
+                throw new OutOfMemoryError();
+            };
+            tapGalaxy(list);
+            idle();
+            assertProblem("Couldn't load Galaxy V2's background image: It's too large to load.");
+
+            // The theme in use and its image stay.
+            assertEquals("Before (base)", ThemeState.load(controller.get()).label);
+            assertArrayEquals(before, Files.readAllBytes(new File(controller.get().getFilesDir(), "spicetify_background").toPath()));
+            assertEquals(View.GONE, restartBar(screen).getVisibility());
+        }
+    }
+
+    @Test @Config(shadows = Patched.class) @GraphicsMode(GraphicsMode.Mode.NATIVE) // Android's own decoder, which reads an image's real size
+    public void aThemeBringsTheImageItsScriptNamesAndAThemeWithoutOneClearsIt() {
+        putTwoThemes();
+        responses.put(Marketplace.manifestUrl(REPO_A), "{\"name\":\"Aurora\",\"description\":\"A vivid theme\","
+                + "\"usercss\":\"u.css\",\"schemes\":\"color.ini\",\"include\":[\"missing.js\",\"hazy.js\"]}");
+        responses.put(Marketplace.resolve("hazy.js", REPO_A, "main"), "const defImage = \"https://i.imgur.com/Wl2D0h0.png\";");
+        responses.put(Marketplace.resolve("u.css", REPO_B, "main"), ".Root__main-view { background-color: transparent; }");
+        images.put("https://i.imgur.com/Wl2D0h0.png", ThemeBackgroundTest.png(1200, 675));
+        try (var controller = appearance()) {
+            View screen = open(decor()).getWindow().getDecorView();
+            ListView list = first(screen, ListView.class);
+            tap(list, 0);
+            idle();
+            // missing.js isn't there (a 404), which only means it names no image, and the script's image wins over user.css.
+            assertEquals("https://i.imgur.com/Wl2D0h0.png", requested.get(requested.size() - 1));
+            assertFalse(requested.contains(Marketplace.resolve("u.css", REPO_A, "main")));
+            button(ShadowDialog.getLatestDialog(), "Later").performClick();
+            assertEquals("Aurora (dark)", ThemeState.load(controller.get()).label);
+            assertTrue(ThemeBackground.hasImage(controller.get()));
+
+            tap(list, 1);
+            idle();
+            button(ShadowDialog.getLatestDialog(), "Later").performClick();
+            assertEquals("Borealis (dark)", ThemeState.load(controller.get()).label);
+            assertFalse(ThemeBackground.hasImage(controller.get()));
+        }
+    }
+
+    @Test @Config(shadows = Patched.class) @GraphicsMode(GraphicsMode.Mode.NATIVE) // Android's own decoder, which reads an image's real size
+    public void aDataUriImageIsSavedOnlyWhenItIsAtLeast480PxOnEachSide() throws IOException {
+        putTwoThemes();
+        byte[] png = ThemeBackgroundTest.png(480, 480);
+        responses.put(Marketplace.resolve("u.css", REPO_A, "main"),
+                "body { background: url(" + dataUri(ThemeBackgroundTest.png(480, 479)) + "); }");
+        responses.put(Marketplace.resolve("u.css", REPO_B, "main"),
+                ".Root__top-container { background-image: url(\"" + dataUri(png) + "\") !important; }");
+        try (var controller = appearance()) {
+            View screen = open(decor()).getWindow().getDecorView();
+            ListView list = first(screen, ListView.class);
+            tap(list, 0); // a pixel short on one side: a tile, not a background, and nothing to say about it
+            idle();
+            button(ShadowDialog.getLatestDialog(), "Later").performClick();
+            assertFalse(ThemeBackground.hasImage(controller.get()));
+            assertFalse(hasTextContaining(screen, "Couldn't load Aurora's background image"));
+
+            tap(list, 1);
+            idle();
+            button(ShadowDialog.getLatestDialog(), "Later").performClick();
+            // Saved at about screen size: the display's longer side is 470 px here.
+            BitmapFactory.Options saved = savedImage(controller.get());
+            assertEquals(470, saved.outWidth);
+            assertEquals(470, saved.outHeight);
+        }
+    }
+
+    @Test @Config(shadows = Patched.class) @GraphicsMode(GraphicsMode.Mode.NATIVE) // Android's own decoder, which reads an image's real size
+    public void aTextureTileOnTheWindowIsNoBackground() {
+        putTwoThemes();
+        // Spotify Dark's shape: a 70x70 tile in a :root variable, repeated over the top container.
+        responses.put(Marketplace.resolve("u.css", REPO_A, "main"), ":root { --bgDarkness3: url('"
+                + dataUri(ThemeBackgroundTest.png(70, 70)) + "'); }\n.main-view-container, .Root__top-container "
+                + "{ background-image: var(--bgDarkness3)!important; background-repeat: repeat!important; }");
+        try (var controller = appearance()) {
+            // An image from the theme before.
+            assertTrue(ThemeRuntime.select(controller.get(), new ThemeState.Selection(ThemeState.SCHEME, "Galaxy V2 (base)",
+                    Collections.singletonMap("main", 0xFF000000)), ThemeBackgroundTest.png(480, 480)));
+            View screen = open(decor()).getWindow().getDecorView();
+            tap(first(screen, ListView.class), 0);
+            idle();
+            button(ShadowDialog.getLatestDialog(), "Later").performClick();
+            assertEquals("Aurora (dark)", ThemeState.load(controller.get()).label);
+            assertFalse(ThemeBackground.hasImage(controller.get()));
+            assertFalse(hasTextContaining(screen, "Couldn't load Aurora's background image"));
+        }
+    }
+
+    @Test @Config(shadows = Patched.class) @GraphicsMode(GraphicsMode.Mode.NATIVE) // Android's own decoder, which refuses what isn't an image
+    public void aThemesOwnImageThatFailsAppliesNothing() throws IOException {
+        putTwoThemes();
+        responses.put(Marketplace.manifestUrl(REPO_A), "{\"name\":\"Aurora\",\"description\":\"A vivid theme\","
+                + "\"usercss\":\"u.css\",\"schemes\":\"color.ini\",\"include\":[\"a.js\"]}");
+        String image = "https://i.imgur.com/aurora.jpg";
+        responses.put(Marketplace.resolve("a.js", REPO_A, "main"), "const defImage = \"" + image + "\";");
+        try (var controller = appearance()) {
+            byte[] before = theThemeBefore(controller.get());
+            View screen = open(decor()).getWindow().getDecorView();
+            ListView list = first(screen, ListView.class);
+            tap(list, 0);
+            idle();
+            assertProblem("Couldn't load Aurora's background image: HTTP 500 for " + image);
+
+            images.put(image, "<html>Not Found</html>".getBytes(StandardCharsets.UTF_8));
+            tap(list, 0);
+            idle();
+            assertProblem("Couldn't load Aurora's background image: Not an image Android can read");
+
+            responses.put(Marketplace.resolve("a.js", REPO_A, "main"), "FAIL");
+            tap(list, 0);
+            idle();
+            assertProblem("Couldn't load Aurora's background image: Connection reset");
+
+            responses.put(Marketplace.resolve("u.css", REPO_B, "main"), "RATE");
+            tap(list, 1);
+            idle();
+            assertProblem("Couldn't load Borealis's background image: " + MarketplaceLoader.RATE_LIMITED);
+
+            // The theme in use and its image stay.
+            assertEquals("Before (base)", ThemeState.load(controller.get()).label);
+            assertArrayEquals(before, Files.readAllBytes(new File(controller.get().getFilesDir(), "spicetify_background").toPath()));
+            assertEquals(View.GONE, restartBar(screen).getVisibility());
+        }
+    }
+
+    @Test @Config(shadows = Patched.class) @GraphicsMode(GraphicsMode.Mode.NATIVE)
+    public void aMissingImageOrFileOnlyMeansTheThemeHasNoImage() throws IOException {
+        putTwoThemes();
+        responses.put(Marketplace.manifestUrl(REPO_A), "{\"name\":\"Aurora\",\"description\":\"A vivid theme\","
+                + "\"usercss\":\"u.css\",\"schemes\":\"color.ini\",\"include\":[\"gone.js\"]}");
+        responses.put(Marketplace.resolve("u.css", REPO_B, "main"), ".Root { background: url(bg.jpg); }");
+        String image = Marketplace.resolve("bg.jpg", REPO_B, "main");
+        images.put(image, GONE);
+        try (var controller = appearance()) {
+            View screen = open(decor()).getWindow().getDecorView();
+            ListView list = first(screen, ListView.class);
+            // Neither its script nor its user.css is there.
+            theThemeBefore(controller.get());
+            tap(list, 0);
+            idle();
+            assertTrue(requested.contains(Marketplace.resolve("gone.js", REPO_A, "main")));
+            assertEquals(Marketplace.resolve("u.css", REPO_A, "main"), requested.get(requested.size() - 1));
+            button(ShadowDialog.getLatestDialog(), "Later").performClick();
+            assertEquals("Aurora (dark)", ThemeState.load(controller.get()).label);
+            assertFalse(ThemeBackground.hasImage(controller.get()));
+
+            // Its user.css names an image that isn't there.
+            theThemeBefore(controller.get());
+            tap(list, 1);
+            idle();
+            assertEquals(image, requested.get(requested.size() - 1));
+            button(ShadowDialog.getLatestDialog(), "Later").performClick();
+            assertEquals("Borealis (dark)", ThemeState.load(controller.get()).label);
+            assertFalse(ThemeBackground.hasImage(controller.get()));
+            assertFalse(hasTextContaining(screen, "Couldn't load"));
+        }
+    }
+
+    /** A theme with an image, applied before the test's. Returns the image saved for it. */
+    private static byte[] theThemeBefore(Activity activity) throws IOException {
+        byte[] image = ThemeBackgroundTest.png(8, 4);
+        assertTrue(ThemeRuntime.select(activity, new ThemeState.Selection(ThemeState.SCHEME, "Before (base)",
+                Collections.singletonMap("main", 0xFF102040)), image));
+        return image;
+    }
+
+    private static BitmapFactory.Options savedImage(Activity activity) throws IOException {
+        return ThemeBackground.bounds(Files.readAllBytes(new File(activity.getFilesDir(), "spicetify_background").toPath()));
+    }
+
     private void assertProblem(String message) {
         Dialog sheet = ShadowDialog.getLatestDialog();
         View view = sheet.getWindow().getDecorView();
@@ -871,14 +1177,35 @@ public class MarketplaceSettingsTest {
                 + "\",\"usercss\":\"u.css\",\"schemes\":\"color.ini\",\"preview\":\"preview.png\"}";
     }
 
+    /** The community themes' titles, without Galaxy V2, which is pinned above them. */
     private static List<String> titles(ListAdapter adapter) {
         List<String> titles = new ArrayList<>();
-        for (int i = 0; i < adapter.getCount(); i++) titles.add(((Marketplace.Theme) adapter.getItem(i)).title);
+        for (int i = 0; i < adapter.getCount(); i++) {
+            Marketplace.Theme theme = (Marketplace.Theme) adapter.getItem(i);
+            if (theme != Marketplace.GALAXY_V2) titles.add(theme.title);
+        }
         return titles;
     }
 
-    private static void tap(ListView list, int position) {
+    /** The list position of the community theme at {@code index}, below the pinned Galaxy V2 when it's shown. */
+    private static int position(ListView list, int index) {
+        ListAdapter adapter = list.getAdapter();
+        return adapter.getCount() > 0 && adapter.getItem(0) == Marketplace.GALAXY_V2 ? index + 1 : index;
+    }
+
+    /** Taps the community theme at {@code index}. */
+    private static void tap(ListView list, int index) {
+        int position = position(list, index);
         list.performItemClick(list.getAdapter().getView(position, null, list), position, position);
+    }
+
+    private static void tapGalaxy(ListView list) {
+        assertSame(Marketplace.GALAXY_V2, list.getAdapter().getItem(0));
+        list.performItemClick(list.getAdapter().getView(0, null, list), 0, 0);
+    }
+
+    private static String dataUri(byte[] png) {
+        return "data:image/png;base64," + Base64.encodeToString(png, Base64.NO_WRAP);
     }
 
     private static byte[] png() {

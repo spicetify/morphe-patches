@@ -62,6 +62,19 @@ public final class ThemeResolver {
         return new Result(roles);
     }
 
+    /**
+     * The roles over a background image: main turns clear, as desktop Galaxy's page background does,
+     * keeping an alpha of 1 so it's never Compose's Color.Transparent, and card keeps a quarter of its
+     * color, so cards still show over the image. Called after {@link #resolve}, so roles derived from
+     * main keep the opaque color.
+     */
+    static Map<String, Integer> seeThrough(Map<String, Integer> roles) {
+        Map<String, Integer> clear = new LinkedHashMap<>(roles);
+        clear.computeIfPresent("main", (role, color) -> color & 0x00FFFFFF | ComposeTheme.SEE_THROUGH);
+        clear.computeIfPresent("card", (role, color) -> (color & 0x00FFFFFF) | 0x40000000);
+        return clear;
+    }
+
     /** Readability warnings for role colors, checked against Spotify's stock colors for roles they leave alone. */
     public static List<String> warnings(Map<String, Integer> roles) {
         int main = roles.getOrDefault("main", STOCK_MAIN);

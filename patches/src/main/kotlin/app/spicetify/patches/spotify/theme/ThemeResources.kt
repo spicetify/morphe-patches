@@ -97,17 +97,18 @@ internal fun roleTable(document: Document, roleMap: Map<String, List<String>>): 
 
 /**
  * The table ComposeTheme reads: `path=name@AARRGGBB,...;path=...`, palette paths then raw color paths,
- * with each color's stock value. Fails when a path follows a color no role maps, since nothing would
- * ever theme it.
+ * with each color's stock value and the `*` of a field that turns see-through behind a background image.
+ * Fails when a path follows a color no role maps, since nothing would ever theme it.
  */
 internal fun composeTable(document: Document, roleMap: Map<String, List<String>>, paths: List<Map<String, String>>): String {
     val mapped = roleMap.values.flatten().toSet()
     val declared = colorElements(document).associate { it.getAttribute("name") to it.textContent.trim() }
     return paths.joinToString(";") { section ->
-        section.entries.joinToString(",") { (path, name) ->
+        section.entries.joinToString(",") { (path, target) ->
+            val name = target.removeSuffix("*")
             require(name in mapped) { "Compose color $path follows $name, which no theme role maps." }
             val stock = requireNotNull(stockColor(name, declared)) { "Compose color $path: $name has no stock color." }
-            "$path=$name@%08X".format(stock)
+            "$path=$name@%08X".format(stock) + target.substring(name.length)
         }
     }
 }

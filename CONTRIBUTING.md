@@ -85,9 +85,9 @@ patch is disabled. Omit `--theme` when that patch is disabled. Theme colors
 are chosen at runtime, so the checker requires every color resource to match
 the stock APK. With `--theme`, it also checks that the `SpicetifyTheme`
 overlayable declares exactly the colors in the theme's role map, that
-Spotify's default Encore palette, its raw colors, and two #282828 surfaces
-pass through the theme's Compose hooks, and that the extension holds the role
-and Compose tables; without it, none of these may be present. It verifies color values and IDs, equivalent relocated XML
+Spotify's default Encore palette, its raw colors, two #282828 surfaces, the
+header scrim's alphas, and Encore's icon tint pass through the theme's Compose
+hooks, and that the extension holds the role and Compose tables; without it, none of these may be present. It verifies color values and IDs, equivalent relocated XML
 selectors, the local builder hook, both final URL hooks, the preference-aware
 wrapper, the settings dialog host, no added manifest components apart from
 server files, unchanged permissions, and the APK signature. It also compares

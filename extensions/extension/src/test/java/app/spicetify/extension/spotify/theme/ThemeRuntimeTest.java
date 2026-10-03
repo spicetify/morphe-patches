@@ -1,14 +1,23 @@
 package app.spicetify.extension.spotify.theme;
 
+import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 
+import android.app.Activity;
 import android.app.Application;
 import android.content.Context;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.os.Bundle;
+import android.widget.FrameLayout;
 import java.io.File;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -16,11 +25,14 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.robolectric.Robolectric;
 import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
 import org.robolectric.annotation.Config;
+import org.robolectric.annotation.GraphicsMode;
 import org.robolectric.annotation.Implementation;
 import org.robolectric.annotation.Implements;
+import org.robolectric.shadows.ShadowBitmapFactory;
 
 @RunWith(RobolectricTestRunner.class)
 @Config(sdk = 30, manifest = Config.NONE)
@@ -39,21 +51,42 @@ public class ThemeRuntimeTest {
         }
     }
 
+    /** A decoder out of memory, as with an image too large for the heap; Android's own drawables still decode. */
+    @Implements(BitmapFactory.class)
+    public static class NoMemory extends ShadowBitmapFactory {
+        @Implementation protected static Bitmap decodeFile(String path, BitmapFactory.Options options) {
+            throw new OutOfMemoryError("Failed to allocate");
+        }
+    }
+
+    /** Spotify's main activity, whose onCreate puts main_content in place. */
+    public static class SpotifyMain extends Activity {
+        @Override protected void onCreate(Bundle state) {
+            super.onCreate(state);
+            FrameLayout main = new FrameLayout(this);
+            main.setId(ThemeBackgroundTest.MAIN_CONTENT);
+            setContentView(main);
+        }
+    }
+
     private static final int COLOR = 0x7f0604bc;
     private final ComposeThemeTest.Palette stock = new ComposeThemeTest.Palette(
             new ComposeThemeTest.Colors(0xFF121212L << 32, 0), new ComposeThemeTest.Colors(0, 0));
 
     private final Application context = RuntimeEnvironment.getApplication();
 
+    private final File image = new File(context.getFilesDir(), "spicetify_background");
+
     @Before
-    public void clearTheSavedTheme() {
+    public void clearTheSavedTheme() throws IOException {
         context.deleteSharedPreferences("spicetify_theme");
+        ThemeBackground.replace(context, null);
     }
 
     @After
     public void restoreSpotifyColors() {
         ComposeTheme.tables = ComposeTheme.parse("");
-        ComposeTheme.update(Collections.<String, Integer>emptyMap());
+        ComposeTheme.update(Collections.<String, Integer>emptyMap(), false);
     }
 
     @Test
@@ -115,6 +148,94 @@ public class ThemeRuntimeTest {
         ComposeTheme.tables = ComposeTheme.parse("a.a=base@FF121212");
         ThemeRuntime.install(context);
         assertEquals(0xFF000000L << 32, ((ComposeThemeTest.Palette) ComposeTheme.palette(stock)).a.a);
+    }
+
+    @Test
+    @Config(shadows = Patched.class)
+    @GraphicsMode(GraphicsMode.Mode.NATIVE)
+    public void aThemeWithAnImageShowsItThroughThePageAndAThemeWithoutOneClearsIt() {
+        ComposeTheme.tables = ComposeTheme.parse("a.a=base@FF121212");
+        ThemeRuntime.install(context);
+
+        assertTrue(ThemeRuntime.select(context, galaxy(), ThemeBackgroundTest.png(8, 4)));
+
+        assertTrue(ThemeBackground.hasImage(context));
+        // The page background turns see-through and keeps its color, as Galaxy's CSS does; the header scrim clears.
+        assertEquals(0x01102040L << 32, ((ComposeThemeTest.Palette) ComposeTheme.palette(stock)).a.a);
+        assertEquals(0f, ComposeTheme.scrimAlpha(0.75f), 0f);
+        // Spicetify's own screens and the saved scheme keep the opaque color.
+        assertEquals(0xFF102040, ThemeRuntime.color("main", 0xFF121212));
+        assertEquals(Integer.valueOf(0xFF102040), ThemeState.load(context).colors.get("main"));
+
+        assertTrue(ThemeRuntime.select(context, ThemeState.Selection.preset(ThemePresets.OLED, "OLED")));
+
+        assertFalse(ThemeBackground.hasImage(context));
+        assertEquals(0xFF000000L << 32, ((ComposeThemeTest.Palette) ComposeTheme.palette(stock)).a.a);
+        assertEquals(0.75f, ComposeTheme.scrimAlpha(0.75f), 0f);
+    }
+
+    @Test
+    @Config(shadows = Patched.class)
+    @GraphicsMode(GraphicsMode.Mode.NATIVE)
+    public void atStartupASavedImageMakesThePageSeeThrough() throws IOException {
+        ThemeState.save(context, galaxy());
+        ThemeBackground.replace(context, ThemeBackground.stage(context, ThemeBackgroundTest.png(8, 4)));
+        ComposeTheme.tables = ComposeTheme.parse("a.a=base@FF121212");
+
+        ThemeRuntime.install(context);
+
+        assertEquals(0x01102040L << 32, ((ComposeThemeTest.Palette) ComposeTheme.palette(stock)).a.a);
+        assertEquals(0f, ComposeTheme.scrimAlpha(0.75f), 0f);
+        assertEquals(0xFF102040, ThemeRuntime.color("main", 0xFF121212));
+    }
+
+    @Test
+    @Config(shadows = {ThemeBackgroundTest.SpotifyIds.class, NoMemory.class})
+    public void anImageTooLargeForMemoryLeavesSpotifysStartAlone() throws IOException {
+        Files.write(image.toPath(), new byte[] {1});
+        ThemeRuntime.install(context);
+
+        Activity activity = Robolectric.buildActivity(SpotifyMain.class).setup().get();
+
+        assertNull(activity.findViewById(ThemeBackgroundTest.MAIN_CONTENT).getBackground());
+        assertNull(ThemeBackground.cached);
+    }
+
+    @Test
+    @Config(shadows = Patched.class)
+    @GraphicsMode(GraphicsMode.Mode.NATIVE) // Android's own decoder, which refuses what isn't an image
+    public void bytesThatArentAnImageChangeNothing() throws IOException {
+        byte[] saved = ThemeBackgroundTest.png(8, 4);
+        ThemeBackground.replace(context, ThemeBackground.stage(context, saved));
+        ComposeTheme.tables = ComposeTheme.parse("a.a=base@FF121212");
+        ThemeRuntime.install(context);
+
+        assertFalse(ThemeRuntime.select(context, galaxy(), "<html>Not Found</html>".getBytes(StandardCharsets.UTF_8)));
+
+        assertArrayEquals(saved, Files.readAllBytes(image.toPath()));
+        assertEquals(ThemePresets.STOCK, ThemeState.load(context).kind);
+        assertSame(stock, ComposeTheme.palette(stock));
+        assertEquals(0xFF121212, ThemeRuntime.color("main", 0xFF121212));
+    }
+
+    @Test
+    @Config(shadows = {Patched.class, FullStorage.class})
+    @GraphicsMode(GraphicsMode.Mode.NATIVE)
+    public void aChoiceTheResourcesCannotTakeKeepsTheSavedImage() throws IOException {
+        byte[] saved = ThemeBackgroundTest.png(8, 4);
+        ThemeBackground.replace(context, ThemeBackground.stage(context, saved));
+
+        assertFalse(ThemeRuntime.select(context, galaxy(), ThemeBackgroundTest.png(4, 8)));
+        assertFalse(ThemeRuntime.select(context, ThemeState.Selection.preset(ThemePresets.OLED, "OLED")));
+
+        assertArrayEquals(saved, Files.readAllBytes(image.toPath()));
+        assertFalse(new File(image.getPath() + ".tmp").exists());
+        assertEquals(ThemePresets.STOCK, ThemeState.load(context).kind);
+    }
+
+    /** A scheme like the ones the Marketplace applies with an image. */
+    private static ThemeState.Selection galaxy() {
+        return new ThemeState.Selection(ThemeState.SCHEME, "Galaxy V2 (base)", Collections.singletonMap("main", 0xFF102040));
     }
 
     @Test

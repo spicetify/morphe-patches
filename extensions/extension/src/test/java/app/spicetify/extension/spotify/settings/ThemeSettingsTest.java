@@ -10,11 +10,17 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.RadioButton;
 import android.widget.ScrollView;
+import android.widget.Switch;
 import android.widget.TextView;
+import app.spicetify.extension.spotify.theme.ThemeBackground;
+import app.spicetify.extension.spotify.theme.ThemeBackgroundTest;
 import app.spicetify.extension.spotify.theme.ThemePresets;
 import app.spicetify.extension.spotify.theme.ThemeRoleMap;
+import app.spicetify.extension.spotify.theme.ThemeRuntime;
 import app.spicetify.extension.spotify.theme.ThemeState;
+import java.io.File;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import org.junit.Before;
 import org.junit.Test;
@@ -23,6 +29,7 @@ import org.robolectric.Robolectric;
 import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
 import org.robolectric.annotation.Config;
+import org.robolectric.annotation.GraphicsMode;
 import org.robolectric.annotation.Implementation;
 import org.robolectric.annotation.Implements;
 import org.robolectric.shadows.ShadowDialog;
@@ -48,6 +55,7 @@ public class ThemeSettingsTest {
         var application = RuntimeEnvironment.getApplication();
         application.deleteSharedPreferences("spicetify_patch_settings");
         application.deleteSharedPreferences("spicetify_theme");
+        new File(application.getFilesDir(), "spicetify_background").delete();
         PatchSettings.initialize(application);
     }
 
@@ -264,6 +272,38 @@ public class ThemeSettingsTest {
         }
     }
 
+    @Test @Config(shadows = Patched.class) @GraphicsMode(GraphicsMode.Mode.NATIVE)
+    public void whileAThemeHasAnImageItsBlurSwitchShowsAndAThemeWithoutOneClearsIt() {
+        // The Marketplace applies a theme's image with its scheme.
+        assertTrue(ThemeRuntime.select(RuntimeEnvironment.getApplication(), new ThemeState.Selection(ThemeState.SCHEME,
+                "Galaxy V2 (base)", Collections.singletonMap("main", 0xFF000000)), ThemeBackgroundTest.png(8, 4)));
+        try (var controller = appearance()) {
+            View root = ShadowDialog.getLatestDialog().getWindow().getDecorView();
+            Switch blur = toggle(root, "Blur background image");
+            assertNotNull(blur);
+            assertFalse(blur.isChecked());
+            assertEquals(View.GONE, restartBar(root).getVisibility());
+            blur.performClick();
+            assertTrue(ThemeBackground.blurEnabled(controller.get()));
+            // Spotify draws the image again, blurred, when it restarts.
+            assertEquals(View.VISIBLE, restartBar(root).getVisibility());
+
+            row(root, "Midnight").performClick();
+            button(ShadowDialog.getLatestDialog(), "Later").performClick();
+            assertFalse(ThemeBackground.hasImage(controller.get()));
+            assertNull(toggle(root, "Blur background image"));
+        }
+    }
+
+    @Test @Config(shadows = Patched.class) public void withoutAnImageThereIsNoBlurSwitch() {
+        try (var controller = appearance()) {
+            View root = ShadowDialog.getLatestDialog().getWindow().getDecorView();
+            row(root, "Midnight").performClick();
+            button(ShadowDialog.getLatestDialog(), "Later").performClick();
+            assertNull(toggle(root, "Blur background image"));
+        }
+    }
+
     @Test public void aThemeThatCannotApplyIsNotSaved() {
         // Without the patch's role table, no theme can take effect.
         try (var controller = appearance()) {
@@ -313,6 +353,14 @@ public class ThemeSettingsTest {
                 View found = row(group.getChildAt(i), description);
                 if (found != null) return found;
             }
+        }
+        return null;
+    }
+
+    /** A switch row's switch, which carries the row's title. */
+    private Switch toggle(View view, String title) {
+        for (Switch toggle : all(view, Switch.class)) {
+            if (toggle.getContentDescription() != null && toggle.getContentDescription().toString().startsWith(title + ". ")) return toggle;
         }
         return null;
     }

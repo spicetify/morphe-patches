@@ -3,7 +3,9 @@ package app.spicetify.patches.spotify.theme
 import app.morphe.patcher.Fingerprint
 import app.morphe.patcher.StringComparisonType
 import app.morphe.patcher.extensions.InstructionExtensions.addInstructions
+import app.morphe.patcher.fieldAccess
 import app.morphe.patcher.literal
+import app.morphe.patcher.methodCall
 import app.morphe.patcher.patch.PatchException
 import app.morphe.patcher.patch.bytecodePatch
 import app.morphe.patcher.string
@@ -20,6 +22,8 @@ import com.android.tools.smali.dexlib2.iface.reference.MethodReference
 import java.util.logging.Logger
 
 internal const val COMPOSE_THEME_CLASS = "Lapp/spicetify/extension/spotify/theme/ComposeTheme;"
+private const val BRUSH = "Landroidx/compose/ui/graphics/Brush;"
+private val PUBLIC_STATIC_FINAL = listOf(AccessFlags.PUBLIC, AccessFlags.STATIC, AccessFlags.FINAL)
 
 /** Compose's Color(Long), which turns an ARGB constant into a Compose color. */
 private const val COLOR = "Lp/iae1;->g(J)J"
@@ -50,8 +54,34 @@ internal object EncoreRawColorsFingerprint : Fingerprint(
 )
 
 /**
+ * Encore's icon draw (icon, description, modifier, tint, active tint, active, composer, changed, defaults),
+ * which hands both of the icon's vectors to a sibling in its class.
+ */
+internal object EncoreIconFingerprint : Fingerprint(
+    accessFlags = PUBLIC_STATIC_FINAL,
+    returnType = "V",
+    parameters = listOf("L", "L", "L", "J", "J", "Z", "L", "I", "I"),
+    filters = listOf(methodCall(definingClass = "this", parameters = listOf("L", "L", "L", "L", "J", "J", "Z", "L", "I"))),
+)
+
+/** The header scrim (modifier, top alpha, bottom alpha, content, ...): raw gray7 as a vertical gradient brush. */
+private fun headerScrimFingerprint(rawColors: FieldReference) = Fingerprint(
+    accessFlags = PUBLIC_STATIC_FINAL,
+    returnType = "V",
+    parameters = listOf("L", "F", "F", "L", "L", "I", "I"),
+    filters = listOf(fieldAccess(rawColors, Opcode.SGET_OBJECT)),
+    custom = { method, _ ->
+        method.implementation?.instructions?.any { instruction ->
+            val call = (instruction as? ReferenceInstruction)?.reference as? MethodReference
+            call != null && (call.returnType == BRUSH || call.parameterTypes.any { it.toString() == BRUSH })
+        } == true
+    },
+)
+
+/**
  * Themes Spotify's Compose screens through ComposeTheme: the default dark Encore palette at both of its
- * reads, Encore's raw colors once they're built, and the #282828 surfaces two screens keep on their own.
+ * reads, Encore's raw colors once they're built, the #282828 surfaces two screens keep on their own, and,
+ * for a background image, the header scrim and the icons Spotify tints with the page background.
  */
 internal val themeComposePatch = bytecodePatch {
     execute {
@@ -90,9 +120,24 @@ internal val themeComposePatch = bytecodePatch {
             instruction.opcode == Opcode.SPUT_OBJECT &&
                 ((instruction as ReferenceInstruction).reference as FieldReference).definingClass == rawColors.definingClass
         } ?: throw PatchException("Expected one store of Encore's raw colors.")
+        val holder = (store.value as ReferenceInstruction).reference as FieldReference
         val register = (store.value as OneRegisterInstruction).registerA
         rawColors.hook(store.index + 1,
             "invoke-static/range { v$register .. v$register }, $COMPOSE_THEME_CLASS->primitives(Ljava/lang/Object;)V")
+
+        // p1 and p2 are the scrim's top and bottom alphas.
+        headerScrimFingerprint(holder).matchAll(1..1).single().method.hook(0, """
+            invoke-static/range { p1 .. p1 }, $COMPOSE_THEME_CLASS->scrimAlpha(F)F
+            move-result p1
+            invoke-static/range { p2 .. p2 }, $COMPOSE_THEME_CLASS->scrimAlpha(F)F
+            move-result p2
+        """)
+
+        // p3 and p4 hold the icon's tint.
+        EncoreIconFingerprint.matchAll(1..1).single().method.hook(0, """
+            invoke-static/range { p3 .. p4 }, $COMPOSE_THEME_CLASS->iconTint(J)J
+            move-result-wide p3
+        """)
 
         // Each initializer stores Color(0xFF282828) in its field: hook the color before the store.
         for (field in SURFACE_FIELDS) {
