@@ -38,9 +38,9 @@ Pixel 8 with a 35,000-track Jellyfin library.
 | Local files from a server | Disabled | Streams an HTTPS WebDAV folder or Jellyfin library into Local Files and Your Library, with its own filter chip. Requires Android 8 or later, byte-range support, and Spotify's Local audio files setting; configure the server in Spotify's Spicetify settings. Not available for root mount installs, because its track provider and server browser must be in the manifest. |
 
 <!-- PATCHES_START EXPANDED -->
-> **[v1.1.0](https://github.com/spicetify/morphe-patches/releases/tag/v1.1.0)**&nbsp;&nbsp;•&nbsp;&nbsp;`main`&nbsp;&nbsp;•&nbsp;&nbsp;7 patches total
+> **[v1.2.0](https://github.com/spicetify/morphe-patches/releases/tag/v1.2.0)**&nbsp;&nbsp;•&nbsp;&nbsp;`main`&nbsp;&nbsp;•&nbsp;&nbsp;8 patches total
 <details open>
-<summary>📦 Spotify&nbsp;&nbsp;•&nbsp;&nbsp;7 patches</summary>
+<summary>📦 Spotify&nbsp;&nbsp;•&nbsp;&nbsp;8 patches</summary>
 <br>
 
 **🎯 Supported versions:**
@@ -56,7 +56,8 @@ Pixel 8 with a 35,000-track Jellyfin library.
 | [Hide Premium tab](#hide-premium-tab) | Hides the Premium navigation tab. Change this in Spicetify settings, then restart Spotify. Does not change your subscription or remove other ads. |  |
 | [Hide player ad cards](#hide-player-ad-cards) | Hides image brand-ad cards and embedded ad pages in Now Playing. Does not suppress audio ads or other player overlays. Experimental. |  |
 | [Local files from a server](#local-files-from-a-server) | Streams audio from an HTTPS WebDAV folder or Jellyfin music library into Local Files and Your Library. Configure the server in Spicetify settings; playback needs Spotify's Local audio files setting. Experimental; requires byte-range support. Not available for root mount installs. |  |
-| [Pin shortcuts on Home](#pin-shortcuts-on-home) | Choose which of Spotify's Home shortcuts appear first in Spicetify settings. Pins are saved on this device. Restart Spotify after changing pins. |  |
+| [Pin shortcuts on Home](#pin-shortcuts-on-home) | Pick playlists, albums or Liked Songs to pin first on Home, or turn on Show only my pins to hide Spotify's other shortcuts. Pins are saved on this device; restart Spotify after changing them. |  |
+| [Spicetify extensions](#spicetify-extensions) | Adds Android versions of Spicetify extensions to the Spicetify Marketplace's Extensions tab, in Spicetify settings, each off until you turn it on. Trash Bin skips the songs and artists you throw away from their menus. Play a random song plays one from all of Spotify or your library, from a Random pill on Home. Shuffle+ plays a playlist, album or Liked Songs in a truly random order when you long-press the shuffle button in Now Playing, choose Shuffle+ this playlist in a playlist's menu, or use its sheet. Hide podcasts hides podcasts and episodes on Home and in Search, and their filters there and in Your Library, and audiobooks unless you turn that off. |  |
 | [Theme colors](#theme-colors) | Choose a theme, such as OLED, or your own colors in Spicetify settings. Requires Android 11 or later. Some screens and hardcoded colors keep Spotify's colors. |  |
 
 </details>
