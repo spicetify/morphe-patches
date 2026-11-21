@@ -38,6 +38,22 @@ query. These adaptations were made on September 17, 2026.
 No code from binary-only candidates was imported. Spotify APKs and other
 proprietary assets are excluded.
 
+## Home pins and server files
+
+Pin shortcuts on Home and Local files from a server started from
+[ImNoammm/morphe-spotify-patches](https://github.com/cvnfork/morphe-spotify-patches/tree/289d59e2bdae0fa6f16ffa0e2769351be46a94e8)
+by [ImNoammm](https://github.com/ImNoammm), at commit
+`289d59e2bdae0fa6f16ffa0e2769351be46a94e8` (August 23, 2026, GPL-3.0 as stated
+in its README). The original repository has since been removed; the link
+points to the same commit, with its original hash and author, in
+`cvnfork/morphe-spotify-patches`. The patch names, the class layout
+of the `localserver` extension, the `MediaStoreReader` hooks that append server
+tracks to Spotify's local-file scan, the content provider that streams them
+through `openProxyFileDescriptor`, and `ProtoWriter.java` come from it.
+Local changes, starting September 18, 2026: ports to newer Spotify versions,
+HTTPS-only connections, Jellyfin, server albums and artists in Your Library, a
+new Home pins hook and picker, and tests.
+
 ## Morphe theme overlay
 
 `ThemeOverlay.java` ports the self-targeting overlay technique of Morphe's
