@@ -25,12 +25,12 @@ reference for these features:
 
 The theme's color map starts from that implementation's resource selection
 and extends it to the colors listed in `patches/src/main/resources/theme/`,
-checked against Spotify 9.1.80.2221. The patch requires each mapped color
+checked against Spotify 9.2.4.2644. The patch requires each mapped color
 exactly once, edits no color values, and declares the mapped colors
 overlayable. It does not import the historical extension, animation hooks, or
 icon assets.
 
-The sharing implementation uses a new fingerprint for Spotify 9.1.80.2221's
+The sharing implementation uses a new fingerprint for Spotify 9.2.4.2644's
 URL builder. Its new Java helper removes named tracking parameters while
 preserving other query parameters and fragments, instead of truncating the
 query. These adaptations were made on September 17, 2026.
