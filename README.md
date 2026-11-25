@@ -5,7 +5,7 @@ This repository publishes patch source and bundles, not Spotify APKs.
 
 <!-- prettier-ignore -->
 > [!NOTE]
-> These patches target Spotify 9.1.80.2221, ARM64. Other Spotify versions are
+> These patches target Spotify 9.2.4.2644, ARM64. Other Spotify versions are
 > not supported.
 
 [**➕ Add Spicetify to Morphe**](https://morphe.software/add-source?github=spicetify/morphe-patches/tree/main)
@@ -45,7 +45,7 @@ Pixel 8 with a 35,000-track Jellyfin library.
 
 **🎯 Supported versions:**
 
-| 🧪&nbsp;9.1.80.2221 |
+| 🧪&nbsp;9.2.4.2644 |
 | :---: |
 | Experimental Android customization patches; runtime compatibility is still being verified. |
 
@@ -89,7 +89,7 @@ instead of adding it again. To add it manually and patch Spotify:
 
 3. Expand **Spicetify Android patches** and enable **Experimental app versions**.
 4. Return to the app list. Spotify appears with the target version
-   `9.1.80.2221`, ARM64 build `145767611`.
+   `9.2.4.2644`, ARM64 build `148916300`.
 5. Optional: To add theme colors, Home pins, or server files, open
    **Settings > Advanced** and enable
    **Expert mode** before selecting Spotify. The default flow applies only
@@ -108,6 +108,19 @@ instead of adding it again. To add it manually and patch Spotify:
 
 Keep your own stock APK or split-APK archive for patching; the repository does
 not distribute Spotify.
+
+Patching refuses an APK whose classes differ from the ones the patches were
+written against. They were checked against this file, the universal build from
+APKMirror:
+
+- File name: `com.spotify.music_9.2.4.2644-148916300_minAPI24(arm64-v8a,armeabi-v7a,x86,x86_64)(nodpi)_apkmirror.com.apk`
+- SHA-256: `997b1abe9c5f47df677d3d2d8ec05d5333e968fa89f51cc1cddfc03aad7ec82c`
+- Signed by Spotify, certificate SHA-256:
+  `6505b181933344f93893d586e399b94616183f04349cb572a9e81a3335e28ffd`
+
+If patching fails with "Spotify settings ABI changed", compare your file with
+these values (`sha256sum` and `apksigner verify --print-certs`) before
+reporting it, and include the result.
 
 ## Change settings in Spotify
 
