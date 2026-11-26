@@ -158,7 +158,7 @@ val extensionsPatch = bytecodePatch(
         "long-press the shuffle button in Now Playing, choose Shuffle+ this playlist in a playlist's menu, or use " +
         "its sheet. Hide podcasts hides podcasts and episodes on Home and in Search, and their " +
         "filters there and in Your Library, and audiobooks unless you turn that off.",
-    default = false,
+    default = true,
 ) {
     compatibleWith(spotifyCompatibility)
     dependsOn(settingsPatch, playerBridgePatch)

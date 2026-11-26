@@ -23,7 +23,7 @@ val homePinsPatch = bytecodePatch(
     description = "Pick playlists, albums or Liked Songs to pin first on Home, or turn on Show only " +
         "my pins to hide Spotify's other shortcuts. Pins are saved on this device; restart Spotify " +
         "after changing them.",
-    default = false,
+    default = true,
 ) {
     compatibleWith(spotifyCompatibility)
     dependsOn(settingsPatch, playerBridgePatch) // the picker reads Your Library through the player bridge

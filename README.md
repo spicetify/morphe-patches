@@ -15,9 +15,9 @@ source. Releases are published from `main`.
 
 ## Patches
 
-Clean sharing is enabled by default; the other patches are optional. Choose
-theme colors, Home pins, ad and Premium-tab hiding, and server files in
-Spotify's Spicetify settings after installation.
+Morphe Manager recommends seven patches. To install **Local files from a
+server**, select it in **Expert mode**. After installation, customize the
+patches in Spotify's Spicetify settings.
 
 Server files stream from an HTTPS WebDAV folder or a Jellyfin library. They
 also add server albums and artists to Your Library, after
@@ -29,13 +29,16 @@ devices). The last completed scan is saved on the device, so server items are
 available as soon as Spotify starts while a fresh scan runs. This was tested on a
 Pixel 8 with a 35,000-track Jellyfin library.
 
-| Patch | Default | Behavior |
+| Patch | Recommended in Morphe | Behavior |
 | --- | --- | --- |
-| Clean sharing links | Enabled | Removes `si`, `pi`, and known `utm_*` parameters from `open.spotify.com` links. Preserves timestamps, context, other parameters, and fragments. |
-| Theme colors | Disabled | Choose a theme such as OLED, Midnight, or Nord in Spicetify settings, apply a community theme's colors and background image from the Spicetify Marketplace, paste a desktop Spicetify theme's `color.ini`, or pick background, surface, and accent colors yourself, then restart Spotify when it offers. Requires Android 11 or later. Hardcoded colors and some screens keep Spotify's colors. |
-| Pin shortcuts on Home | Disabled | Pins playlists, albums or Liked Songs from your library first on Home, in the order you pick them. Pins show as Spotify's own shortcut tiles, even when Spotify's Home leaves them out, and **Show only my pins** hides Spotify's other shortcuts. Configure pins in Spotify's Spicetify settings, then restart Spotify. |
-| Spicetify extensions | Disabled | Android versions of Spicetify extensions, each off until you turn it on in the Spicetify Marketplace's **Extensions** tab. **Trash Bin**: throw a song or an artist away from its **...** menu, and Spotify skips that song, or the artist's songs, whenever they play, as the desktop extension does. The trash list exports and imports in the desktop format. **Hide podcasts**: hides podcasts and episodes on Home and in Search, and their filters there and in Your Library, as the desktop extension does. Its **Also hide audiobooks** switch, on by default, hides audiobooks the same way. **Play a random song**: plays one song from all of Spotify, found with a Web API search, or from your library, from a **Random** pill next to **All** on Home or from its sheet in Spicetify settings. **Shuffle+**: plays a playlist, album, or Liked Songs in a truly random order, as the desktop extension does. Long-press the shuffle button in Now Playing, where a tap still toggles Spotify's shuffle, choose **Shuffle+ this playlist** in the **...** menu of a playlist or Liked Songs, even with nothing playing, or use its sheet in Spicetify settings. |
-| Local files from a server | Disabled | Streams an HTTPS WebDAV folder or Jellyfin library into Local Files and Your Library, with its own filter chip. Requires Android 8 or later, byte-range support, and Spotify's Local audio files setting; configure the server in Spotify's Spicetify settings. Not available for root mount installs, because its track provider and server browser must be in the manifest. |
+| Clean sharing links | Yes | Removes `si`, `pi`, and known `utm_*` parameters from `open.spotify.com` links. Preserves timestamps, context, other parameters, and fragments. |
+| Theme colors | Yes | Choose a theme such as OLED, Midnight, or Nord in Spicetify settings, apply a community theme's colors and background image from the Spicetify Marketplace, paste a desktop Spicetify theme's `color.ini`, or pick background, surface, and accent colors yourself, then restart Spotify when it offers. Requires Android 11 or later. Hardcoded colors and some screens keep Spotify's colors. |
+| Pin shortcuts on Home | Yes | Pins playlists, albums or Liked Songs from your library first on Home, in the order you pick them. Pins show as Spotify's own shortcut tiles, even when Spotify's Home leaves them out, and **Show only my pins** hides Spotify's other shortcuts. Configure pins in Spotify's Spicetify settings, then restart Spotify. |
+| Spicetify extensions | Yes | Android versions of Spicetify extensions, each off until you turn it on in the Spicetify Marketplace's **Extensions** tab. **Trash Bin**: throw a song or an artist away from its **...** menu, and Spotify skips that song, or the artist's songs, whenever they play, as the desktop extension does. The trash list exports and imports in the desktop format. **Hide podcasts**: hides podcasts and episodes on Home and in Search, and their filters there and in Your Library, as the desktop extension does. Its **Also hide audiobooks** switch, on by default, hides audiobooks the same way. **Play a random song**: plays one song from all of Spotify, found with a Web API search, or from your library, from a **Random** pill next to **All** on Home or from its sheet in Spicetify settings. **Shuffle+**: plays a playlist, album, or Liked Songs in a truly random order, as the desktop extension does. Long-press the shuffle button in Now Playing, where a tap still toggles Spotify's shuffle, choose **Shuffle+ this playlist** in the **...** menu of a playlist or Liked Songs, even with nothing playing, or use its sheet in Spicetify settings. |
+| Hide Home and Browse ads | Yes | Hides image and video brand-ad sections on Home and Browse. |
+| Hide player ad cards | Yes | Hides image brand-ad cards and embedded ad pages in Now Playing. |
+| Hide Premium tab | Yes | Hides the Premium navigation tab. Change this in Spicetify settings, then restart Spotify. |
+| Local files from a server | Opt-in | Streams an HTTPS WebDAV folder or Jellyfin library into Local Files and Your Library, with its own filter chip. Requires Android 8 or later, byte-range support, and Spotify's Local audio files setting; configure the server in Spotify's Spicetify settings. Not available for root mount installs, because its track provider and server browser must be in the manifest. |
 
 <!-- PATCHES_START EXPANDED -->
 > **[v1.2.0](https://github.com/spicetify/morphe-patches/releases/tag/v1.2.0)**&nbsp;&nbsp;•&nbsp;&nbsp;`main`&nbsp;&nbsp;•&nbsp;&nbsp;8 patches total
@@ -45,9 +48,8 @@ Pixel 8 with a 35,000-track Jellyfin library.
 
 **🎯 Supported versions:**
 
-| 🧪&nbsp;9.2.4.2644 |
+| 9.2.4.2644 |
 | :---: |
-| Experimental Android customization patches; runtime compatibility is still being verified. |
 
 | 💊&nbsp;Patch | 📜&nbsp;Description | ⚙️&nbsp;Options |
 |----------|----------------|-----------|
@@ -87,24 +89,20 @@ instead of adding it again. To add it manually and patch Spotify:
 
    If your source uses the former `dev` URL, switch to this `main` URL.
 
-3. Expand **Spicetify Android patches** and enable **Experimental app versions**.
-4. Return to the app list. Spotify appears with the target version
+3. Return to the app list. Spotify appears with the target version
    `9.2.4.2644`, ARM64 build `148916300`.
-5. Optional: To add theme colors, Home pins, or server files, open
-   **Settings > Advanced** and enable
-   **Expert mode** before selecting Spotify. The default flow applies only
-   **Clean sharing links**.
-6. Select **Spotify**, choose **No, I already have an APK**, and select your
+4. To change which patches you install, open **Settings > Advanced** and
+   enable **Expert mode** before selecting Spotify.
+5. Select **Spotify**, choose **No, I already have an APK**, and select your
    original APK or split-APK archive. To use Android's system picker without
    granting **All files access**, turn off **Settings > System > Custom file
    picker** in Manager first.
-7. Read the experimental-support notice and select **Proceed anyway** if you
-   want to test this build. In Expert mode, select the optional patches you
-   want, then select **Proceed to patching**.
-8. Wait for **Patching complete**, then select **Install**. If Manager reports
+6. In Expert mode, adjust the selection, then select **Proceed to patching**.
+   To add server files, select **Local files from a server**.
+7. Wait for **Patching complete**, then select **Install**. If Manager reports
    a certificate conflict, uninstall the existing app only after accepting
    the data loss described above. Confirm installation in Android's dialog.
-9. Open Spotify from Android's app launcher. Sign in if needed.
+8. Open Spotify from Android's app launcher. Sign in if needed.
 
 Keep your own stock APK or split-APK archive for patching; the repository does
 not distribute Spotify.
