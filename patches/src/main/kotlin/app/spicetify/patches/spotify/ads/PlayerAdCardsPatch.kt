@@ -20,7 +20,7 @@ val playerAdCardsPatch = bytecodePatch(
     name = "Hide player ad cards",
     description = "Hides image brand-ad cards and embedded ad pages in Now Playing. " +
         "Does not suppress audio ads or other player overlays. Experimental.",
-    default = false,
+    default = true,
 ) {
     compatibleWith(spotifyCompatibility)
     dependsOn(settingsPatch)

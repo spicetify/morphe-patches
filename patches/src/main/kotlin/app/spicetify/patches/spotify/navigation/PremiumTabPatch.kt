@@ -18,7 +18,7 @@ val premiumTabPatch = bytecodePatch(
     name = "Hide Premium tab",
     description = "Hides the Premium navigation tab. Change this in Spicetify settings, " +
         "then restart Spotify. Does not change your subscription or remove other ads.",
-    default = false,
+    default = true,
 ) {
     compatibleWith(spotifyCompatibility)
     dependsOn(settingsPatch)

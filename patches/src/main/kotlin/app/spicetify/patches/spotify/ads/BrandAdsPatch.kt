@@ -19,7 +19,7 @@ val brandAdsPatch = bytecodePatch(
     name = "Hide Home and Browse ads",
     description = "Hides image and video brand-ad sections on Home and Browse. " +
         "Does not suppress audio ads, player ads, or upgrade prompts. Experimental.",
-    default = false,
+    default = true,
 ) {
     compatibleWith(spotifyCompatibility)
     dependsOn(settingsPatch)
