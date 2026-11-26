@@ -44,12 +44,12 @@ Pin shortcuts on Home and Local files from a server started from
 [ImNoammm/morphe-spotify-patches](https://github.com/cvnfork/morphe-spotify-patches/tree/289d59e2bdae0fa6f16ffa0e2769351be46a94e8)
 by [ImNoammm](https://github.com/ImNoammm), at commit
 `289d59e2bdae0fa6f16ffa0e2769351be46a94e8` (August 23, 2026, GPL-3.0 as stated
-in its README). The original repository has since been removed; the link
-points to the same commit, with its original hash and author, in
-`cvnfork/morphe-spotify-patches`. The patch names, the class layout
-of the `localserver` extension, the `MediaStoreReader` hooks that append server
-tracks to Spotify's local-file scan, the content provider that streams them
-through `openProxyFileDescriptor`, and `ProtoWriter.java` come from it.
+in its README). The original repository is no longer available. The link points
+to the surviving source snapshot in `cvnfork/morphe-spotify-patches`. The patch
+names, the class layout of the `localserver` extension, the `MediaStoreReader`
+hooks that append server tracks to Spotify's local-file scan, the content
+provider that streams them through `openProxyFileDescriptor`, and
+`ProtoWriter.java` come from it.
 Local changes, starting September 18, 2026: ports to newer Spotify versions,
 HTTPS-only connections, Jellyfin, server albums and artists in Your Library, a
 new Home pins hook and picker, and tests.
